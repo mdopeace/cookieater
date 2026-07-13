@@ -108,7 +108,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-full min-h-[400px]">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-biscuit-500 text-white">
-        <span className="font-bold text-lg">cookieater</span>
+        <span className="font-fredoka font-bold text-lg">cookieater</span>
         <span className="text-biscuit-200 text-xs">🍪</span>
       </div>
 

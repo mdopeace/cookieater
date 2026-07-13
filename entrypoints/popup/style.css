@@ -1,6 +1,11 @@
 @import "tailwindcss";
+@import "@fontsource/fredoka/700.css";
+@import "@fontsource/nunito/400.css";
+@import "@fontsource/nunito/600.css";
 
 @theme {
+  --font-family-fredoka: "Fredoka", sans-serif;
+  --font-family-nunito: "Nunito", sans-serif;
   --color-biscuit-50: #fffbeb;
   --color-biscuit-100: #fef3c7;
   --color-biscuit-200: #fde68a;
@@ -34,7 +39,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-family-nunito);
   background-color: var(--color-cream);
   color: #1f2937;
   width: 480px;
