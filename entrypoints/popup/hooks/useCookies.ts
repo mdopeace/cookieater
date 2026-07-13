@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { browser } from "wxt/browser";
 import type { CookieItem } from "../types";
+
+const normalPath = (p: string) => (p.startsWith("/") ? p : `/${p}`);
 
 function toCookieItem(c: {
   name: string;
@@ -30,13 +32,9 @@ function toCookieItem(c: {
 }
 
 export function useCookies(domain: string) {
-  type Change =
-    | { localId: string; type: "add"; original: null; current: CookieItem }
-    | { localId: string; type: "update"; original: CookieItem | null; current: CookieItem }
-    | { localId: string; type: "delete"; original: CookieItem | null; current: null };
-
   const [cookies, setCookies] = useState<CookieItem[]>([]);
-  const [pending, setPending] = useState<Change[]>([]);
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +45,8 @@ export function useCookies(domain: string) {
     try {
       const raw = await browser.cookies.getAll({ domain });
       setCookies(raw.map(toCookieItem));
-      setPending([]);
+      setDirtyIds(new Set());
+      setNewIds(new Set());
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -61,120 +60,117 @@ export function useCookies(domain: string) {
 
   const addCookie = useCallback((item: CookieItem) => {
     setCookies((prev) => [...prev, item]);
-    setPending((prev) => [
-      ...prev,
-      { localId: item.localId, type: "add", original: null, current: item },
-    ]);
+    setNewIds((prev) => new Set(prev).add(item.localId));
+    setDirtyIds((prev) => new Set(prev).add(item.localId));
   }, []);
 
   const updateCookie = useCallback(
     (localId: string, updates: Partial<CookieItem>) => {
-      setPending((prev) => {
-        const existing = prev.find((p) => p.localId === localId);
-        const current = {
-          ...(existing?.current ??
-            cookies.find((c) => c.localId === localId)!),
-          ...updates,
-        };
-        const filtered = prev.filter((p) => p.localId !== localId);
-        const original = existing?.original ?? cookies.find((c) => c.localId === localId) ?? null;
-        return [
-          ...filtered,
-          { localId, type: "update", original, current },
-        ];
+      setCookies((prev) =>
+        prev.map((c) => (c.localId === localId ? { ...c, ...updates } : c)),
+      );
+      setDirtyIds((prev) => new Set(prev).add(localId));
+    },
+    [],
+  );
+
+  const removeCookie = useCallback(
+    async (localId: string) => {
+      const cookie = cookies.find((c) => c.localId === localId);
+      if (!cookie) return;
+
+      if (newIds.has(localId)) {
+        setCookies((prev) => prev.filter((c) => c.localId !== localId));
+        setNewIds((prev) => {
+          const s = new Set(prev);
+          s.delete(localId);
+          return s;
+        });
+        setDirtyIds((prev) => {
+          const s = new Set(prev);
+          s.delete(localId);
+          return s;
+        });
+        return;
+      }
+
+      try {
+        const url = `https://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
+        await browser.cookies.remove({ name: cookie.name, url });
+        setCookies((prev) => prev.filter((c) => c.localId !== localId));
+        setDirtyIds((prev) => {
+          const s = new Set(prev);
+          s.delete(localId);
+          return s;
+        });
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [cookies, newIds],
+  );
+
+  const saveCookie = useCallback(
+    async (localId: string) => {
+      const cookie = cookies.find((c) => c.localId === localId);
+      if (!cookie) return;
+
+      const np = normalPath(cookie.path);
+      const url = `https://${cookie.domain.replace(/^\./, "")}${np}`;
+      const sameSite = cookie.sameSite;
+
+      await browser.cookies.set({
+        url,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain.replace(/^\./, ""),
+        path: np,
+        expirationDate: cookie.expires >= 0 ? cookie.expires : undefined,
+        secure: sameSite === "no_restriction" ? true : cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite,
+      });
+
+      setDirtyIds((prev) => {
+        const s = new Set(prev);
+        s.delete(localId);
+        return s;
+      });
+      setNewIds((prev) => {
+        const s = new Set(prev);
+        s.delete(localId);
+        return s;
       });
     },
     [cookies],
   );
 
-  const removeCookie = useCallback((localId: string) => {
-    setPending((prev) => {
-      const existing = prev.find((p) => p.localId === localId);
-      if (existing?.type === "add") {
-        return prev.filter((p) => p.localId !== localId);
-      }
-      const filtered = prev.filter((p) => p.localId !== localId);
-      return [
-        ...filtered,
-        {
-          localId,
-          type: "delete" as const,
-          original: existing?.original ?? null,
-          current: null,
-        },
-      ];
-    });
-  }, []);
-
-  const save = useCallback(async () => {
-    const errors: string[] = [];
-
-    for (const change of pending) {
-      try {
-        if (change.type === "delete" && change.original) {
-          await browser.cookies.remove({
-            name: change.original.name,
-            url: `https://${change.original.domain}${change.original.path}`,
-          });
-        } else if (change.current) {
-          const c = change.current;
-          const url = `https://${c.domain}${c.path}`;
-          await browser.cookies.set({
-            url,
-            name: c.name,
-            value: c.value,
-            domain: c.domain,
-            path: c.path,
-            expirationDate: c.expires >= 0 ? c.expires : undefined,
-            secure: c.secure,
-            httpOnly: c.httpOnly,
-            sameSite: c.sameSite === "unspecified" ? "unspecified" : c.sameSite,
-          });
-        }
-      } catch (e) {
-        errors.push(`${change.current?.name ?? "?"}: ${(e as Error).message}`);
-      }
-    }
-
-    if (errors.length > 0) {
-      throw new Error(errors.join("\n"));
-    }
-
-    await load();
-  }, [pending, load]);
-
-  const discard = useCallback(() => {
-    load();
-  }, [load]);
-
-  const displayCookies = useMemo(() => {
-    const map = new Map<string, CookieItem>();
+  const clearAll = useCallback(async () => {
     for (const c of cookies) {
-      const p = pending.find((pc) => pc.localId === c.localId);
-      if (p?.type === "delete") continue;
-      map.set(c.localId, p?.current ?? c);
-    }
-    for (const p of pending) {
-      if (p.type === "add" && p.current) {
-        map.set(p.localId, p.current);
+      if (newIds.has(c.localId)) continue;
+      try {
+        const url = `https://${c.domain.replace(/^\./, "")}${normalPath(c.path)}`;
+        await browser.cookies.remove({ name: c.name, url });
+      } catch {
+        /* skip per-cookie errors during clear all */
       }
     }
-    return Array.from(map.values());
-  }, [cookies, pending]);
-
-  const hasChanges = pending.length > 0;
+    setCookies([]);
+    setDirtyIds(new Set());
+    setNewIds(new Set());
+  }, [cookies, newIds]);
 
   return {
-    cookies: displayCookies,
-    pending,
+    cookies,
     loading,
     error,
-    hasChanges,
+    dirtyIds,
+    newIds,
     addCookie,
     updateCookie,
     removeCookie,
-    save,
-    discard,
+    saveCookie,
+    clearAll,
     reload: load,
   };
 }

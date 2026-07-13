@@ -13,15 +13,15 @@ export default function App() {
 
   const {
     cookies,
-    pending,
     loading,
     error,
-    hasChanges,
+    dirtyIds,
+    newIds,
     addCookie,
     updateCookie,
     removeCookie,
-    save,
-    discard,
+    saveCookie,
+    clearAll,
     reload,
   } = useCookies(domain);
 
@@ -42,11 +42,11 @@ export default function App() {
     [cookies, search],
   );
 
-  const handleSave = async () => {
+  const handleSaveOne = async (localId: string) => {
     setSaving(true);
     setSaveError(null);
     try {
-      await save();
+      await saveCookie(localId);
     } catch (e) {
       setSaveError((e as Error).message);
     } finally {
@@ -102,9 +102,7 @@ export default function App() {
 
   const handleClearAll = () => {
     if (!confirm("Clear all cookies for this domain?")) return;
-    for (const c of cookies) {
-      removeCookie(c.localId);
-    }
+    clearAll();
   };
 
   return (
@@ -117,17 +115,21 @@ export default function App() {
       <DomainBar domain={domain} onDomainChange={setDomain} onRefresh={reload} />
       <SearchBar value={search} onChange={setSearch} />
 
-      {error && (
-        <div className="px-4 py-2 text-sm text-red-600 bg-red-50 mx-4 rounded-lg">
-          {error}
+      <div className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden min-h-0">
+          <div className="px-4 py-2 text-sm text-red-600 bg-red-50 mx-4 rounded-lg mb-2">
+            {error}
+          </div>
         </div>
-      )}
+      </div>
 
-      {saveError && (
-        <div className="px-4 py-2 text-sm text-red-600 bg-red-50 mx-4 rounded-lg whitespace-pre-wrap">
-          {`Save failed:\n${saveError}`}
+      <div className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden min-h-0">
+          <div className="px-4 py-2 text-sm text-red-600 bg-red-50 mx-4 rounded-lg whitespace-pre-wrap mb-2">
+            {`Save failed:\n${saveError}`}
+          </div>
         </div>
-      )}
+      </div>
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
@@ -150,32 +152,23 @@ export default function App() {
             <CookieCard
               key={cookie.localId}
               cookie={cookie}
-              change={pending.find((p) => p.localId === cookie.localId)}
+              isDirty={dirtyIds.has(cookie.localId)}
+              isNew={newIds.has(cookie.localId)}
+              saving={saving}
               onUpdate={updateCookie}
               onRemove={removeCookie}
+              onSave={handleSaveOne}
             />
           ))}
         </div>
       )}
 
       <ActionBar
-        hasChanges={hasChanges}
-        loading={saving}
         onAdd={handleAdd}
         onExport={handleExport}
         onImport={handleImport}
         onClearAll={handleClearAll}
-        onSave={handleSave}
       />
-
-      {hasChanges && (
-        <button
-          onClick={discard}
-          className="text-xs text-center py-1 text-gray-400 hover:text-gray-600 cursor-pointer"
-        >
-          Discard all changes
-        </button>
-      )}
     </div>
   );
 }

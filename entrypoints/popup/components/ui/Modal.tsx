@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { FiX } from "react-icons/fi";
 import Button from "./Button";
@@ -17,15 +18,36 @@ export default function Modal({
   children,
   footer,
 }: ModalProps) {
-  if (!isOpen) return null;
+  const [show, setShow] = useState(isOpen);
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShow(true);
+      setAnimating(false);
+    } else if (show) {
+      setAnimating(true);
+      const t = setTimeout(() => {
+        setShow(false);
+        setAnimating(false);
+      }, 200);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  if (!show) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-black/40"
+        className={`absolute inset-0 transition-opacity duration-200 ${animating ? "opacity-0" : "opacity-100"}`}
+        style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-xl shadow-xl w-[90%] max-w-md max-h-[80vh] flex flex-col">
+      <div
+        className={`relative bg-white rounded-xl shadow-xl w-[90%] max-w-md max-h-[80vh] flex flex-col transition-all duration-200
+          ${animating ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">

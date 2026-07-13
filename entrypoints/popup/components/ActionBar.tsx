@@ -4,29 +4,22 @@ import {
   FiDownload,
   FiUpload,
   FiTrash2,
-  FiSave,
 } from "react-icons/fi";
 import Button from "./ui/Button";
 import type { CookieItem } from "../types";
 
 interface ActionBarProps {
-  hasChanges: boolean;
-  loading: boolean;
   onAdd: () => void;
   onExport: () => void;
   onImport: (data: CookieItem[]) => void;
   onClearAll: () => void;
-  onSave: () => void;
 }
 
 export default function ActionBar({
-  hasChanges,
-  loading,
   onAdd,
   onExport,
   onImport,
   onClearAll,
-  onSave,
 }: ActionBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -47,7 +40,7 @@ export default function ActionBar({
   };
 
   return (
-    <div className="sticky bottom-0 bg-cream border-t border-biscuit-200 px-4 py-3 space-y-2">
+    <div className="sticky bottom-0 bg-cream border-t border-biscuit-200 px-4 py-3">
       <div className="flex gap-2 flex-wrap">
         <Button
           variant="secondary"
@@ -90,18 +83,6 @@ export default function ActionBar({
           className="hidden"
         />
       </div>
-
-      <Button
-        variant="primary"
-        size="lg"
-        icon={<FiSave />}
-        loading={loading}
-        disabled={!hasChanges}
-        onClick={onSave}
-        className="w-full"
-      >
-        Save Changes
-      </Button>
     </div>
   );
 }

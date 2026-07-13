@@ -11,10 +11,3 @@ export interface CookieItem {
   session: boolean;
   hostOnly: boolean;
 }
-
-export interface PendingChange {
-  localId: string;
-  type: "add" | "update" | "delete";
-  original: CookieItem | null;
-  current: CookieItem | null;
-}

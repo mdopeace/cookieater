@@ -46,30 +46,38 @@ export default function DomainBar({
   return (
     <div className="flex items-center gap-2 px-4 py-3 border-b border-biscuit-200 bg-white/60">
       <FiGlobe className="text-biscuit-500 shrink-0" size={16} />
-      {editing ? (
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSubmit();
-            if (e.key === "Escape") {
-              setInput(domain);
-              setEditing(false);
-            }
-          }}
-          onBlur={handleSubmit}
-          className="flex-1"
-          autoFocus
-        />
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="flex-1 text-sm font-medium text-gray-800 text-left hover:text-biscuit-600 transition-colors cursor-pointer"
-          title="Click to edit domain"
+      <div className="flex-1 relative min-h-[36px]">
+        <div
+          className={`absolute inset-0 flex items-center transition-all duration-200
+            ${editing ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"}`}
         >
-          {domain || "No domain"}
-        </button>
-      )}
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm font-medium text-gray-800 text-left hover:text-biscuit-600 transition-colors cursor-pointer w-full"
+            title="Click to edit domain"
+          >
+            {domain || "No domain"}
+          </button>
+        </div>
+        <div
+          className={`absolute inset-0 transition-all duration-200
+            ${editing ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
+        >
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit();
+              if (e.key === "Escape") {
+                setInput(domain);
+                setEditing(false);
+              }
+            }}
+            onBlur={handleSubmit}
+            autoFocus
+          />
+        </div>
+      </div>
       <Button variant="ghost" size="sm" onClick={onRefresh} icon={<FiRotateCw />} />
     </div>
   );
