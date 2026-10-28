@@ -77,19 +77,13 @@ select:focus-visible {
   background: var(--surface);
 }
 
-.brand-mark {
-  display: grid;
-  width: 30px;
-  height: 30px;
+.brand-logo {
+  display: block;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--border-strong);
   border-radius: 9px;
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  object-fit: contain;
 }
 
 .brand-lockup {

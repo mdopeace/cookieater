@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import cookieaterIconUrl from "../../assets/icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
 import DomainBar from "./components/DomainBar";
@@ -108,9 +109,9 @@ export default function App() {
   return (
     <div className="popup-shell flex flex-col h-full min-h-[400px]">
       <header className="popup-header">
-        <span className="brand-mark" aria-hidden="true">C</span>
+        <img className="brand-logo" src={cookieaterIconUrl} alt="" />
         <div className="brand-lockup">
-          <span className="brand-name">cookieater</span>
+          <span className="brand-name">Cookieater</span>
           <span className="brand-caption">Cookie manager</span>
         </div>
         <span className="popup-header-count">
