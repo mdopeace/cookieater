@@ -44,8 +44,8 @@ export default function DomainBar({
   };
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 border-b border-biscuit-200 bg-white/60">
-      <FiGlobe className="text-biscuit-500 shrink-0" size={16} />
+    <div className="domain-bar">
+      <FiGlobe className="domain-icon" size={15} />
       <div className="flex-1 relative min-h-[36px]">
         <div
           className={`absolute inset-0 flex items-center transition-all duration-200
@@ -53,14 +53,14 @@ export default function DomainBar({
         >
           <button
             onClick={() => setEditing(true)}
-            className="text-sm font-medium text-gray-800 text-left hover:text-biscuit-600 transition-colors cursor-pointer w-full"
+            className="domain-display text-left transition-colors cursor-pointer"
             title="Click to edit domain"
           >
             {domain || "No domain"}
           </button>
         </div>
         <div
-          className={`absolute inset-0 transition-all duration-200
+          className={`domain-edit-layer transition-all duration-200
             ${editing ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         >
           <Input

@@ -13,8 +13,7 @@ export default function Card({
 }: CardProps) {
   return (
     <div
-      className={`rounded-xl bg-white border transition-colors
-        ${pending ? "border-biscuit-400 border-dashed" : "border-gray-200"}
+      className={`cookie-card ${pending ? "cookie-card-pending" : ""}
         ${className}`}
     >
       {children}

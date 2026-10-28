@@ -34,15 +34,17 @@ export default function CookieCard({
 
   return (
     <div
-      className={`transition-all duration-300 ease-in-out
+      className={`transition-all duration-200 ease-in-out
         ${removing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
-        ${isNew ? "animate-[slideDown_0.35s_ease-out]" : ""}`}
+        ${isNew ? "animate-slide-down" : ""}`}
     >
-      <Card pending={isDirty} className={isNew ? "ring-2 ring-biscuit-300" : ""}>
-        <div className="flex items-center gap-2 px-4 py-2.5">
+      <Card pending={isDirty} className={isNew ? "cookie-card-new" : ""}>
+        <div className="cookie-main-row">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+            className="cookie-expand"
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${cookie.name || "cookie"} details`}
+            aria-expanded={expanded}
           >
             <FiChevronRight
               size={14}
@@ -50,16 +52,18 @@ export default function CookieCard({
             />
           </button>
 
-          <div className="flex-1 grid grid-cols-2 gap-2">
+          <div className="cookie-fields">
             <Input
               value={cookie.name}
               onChange={(e) => onUpdate(cookie.localId, { name: e.target.value })}
               placeholder="Name"
+              aria-label="Cookie name"
             />
             <Input
               value={cookie.value}
               onChange={(e) => onUpdate(cookie.localId, { value: e.target.value })}
               placeholder="Value"
+              aria-label="Cookie value"
             />
           </div>
 
@@ -67,18 +71,17 @@ export default function CookieCard({
             <button
               onClick={() => onSave(cookie.localId)}
               disabled={!isDirty || saving}
-              className={`transition-all duration-200 ease-in-out cursor-pointer disabled:cursor-not-allowed
-                ${isDirty && !saving
-                  ? "opacity-100 text-biscuit-500 hover:text-biscuit-700"
-                  : "opacity-40 text-gray-400"}`}
+              className={`cookie-icon-action ${isDirty && !saving ? "cookie-save-ready" : ""}`}
               title="Save cookie"
+              aria-label={`Save ${cookie.name || "cookie"}`}
             >
               <FiSave size={15} />
             </button>
             <button
               onClick={handleRemove}
-              className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+              className="cookie-icon-action cookie-delete"
               title="Delete cookie"
+              aria-label={`Delete ${cookie.name || "cookie"}`}
             >
               <FiTrash2 size={15} />
             </button>

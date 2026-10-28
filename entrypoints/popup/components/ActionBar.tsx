@@ -40,8 +40,8 @@ export default function ActionBar({
   };
 
   return (
-    <div className="sticky bottom-0 bg-cream border-t border-biscuit-200 px-4 py-3">
-      <div className="flex gap-2 flex-wrap">
+    <div className="action-bar">
+      <div className="action-bar-buttons">
         <Button
           variant="secondary"
           size="sm"

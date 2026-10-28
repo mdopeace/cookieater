@@ -20,7 +20,7 @@ export default function AdvancedFields({
       : "";
 
   return (
-    <div className="px-4 pb-3 pt-1 border-t border-gray-100 space-y-2.5">
+    <div className="advanced-fields">
       <Input
         label="Domain"
         value={cookie.domain}
@@ -57,29 +57,27 @@ export default function AdvancedFields({
           })
         }
       />
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+      <div className="cookie-flags">
+        <label className="cookie-checkbox">
           <input
             type="checkbox"
             checked={cookie.secure}
             onChange={(e) => set({ secure: e.target.checked })}
-            className="rounded border-gray-300 text-biscuit-500 focus:ring-biscuit-500"
           />
           Secure
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label className="cookie-checkbox">
           <input
             type="checkbox"
             checked={cookie.httpOnly}
             onChange={(e) => set({ httpOnly: e.target.checked })}
-            className="rounded border-gray-300 text-biscuit-500 focus:ring-biscuit-500"
           />
           HttpOnly
         </label>
       </div>
-      <div className="flex gap-4 text-xs text-gray-400">
-        <span>{cookie.hostOnly ? "Host-only" : "Not host-only"}</span>
-        <span>{cookie.session ? "Session" : "Persistent"}</span>
+      <div className="cookie-metadata">
+        <span className="metadata-pill">{cookie.hostOnly ? "Host-only" : "Not host-only"}</span>
+        <span className="metadata-pill">{cookie.session ? "Session" : "Persistent"}</span>
       </div>
     </div>
   );

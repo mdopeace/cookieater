@@ -4,20 +4,16 @@ type Variant = "primary" | "secondary" | "danger" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
-  primary:
-    "bg-biscuit-500 text-white hover:bg-biscuit-600 active:bg-biscuit-700",
-  secondary:
-    "bg-white text-biscuit-700 border border-biscuit-300 hover:bg-biscuit-50 active:bg-biscuit-100",
-  danger:
-    "bg-red-500 text-white hover:bg-red-600 active:bg-red-700",
-  ghost:
-    "text-gray-600 hover:bg-gray-100 active:bg-gray-200",
+  primary: "button-primary",
+  secondary: "button-secondary",
+  danger: "button-danger",
+  ghost: "button-ghost",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "px-2 py-1 text-xs gap-1",
-  md: "px-3 py-1.5 text-sm gap-1.5",
-  lg: "px-4 py-2 text-sm gap-2",
+  sm: "button-sm",
+  md: "button-md",
+  lg: "button-lg",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -39,9 +35,7 @@ export default function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors
-        disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-        ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`button-base ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >

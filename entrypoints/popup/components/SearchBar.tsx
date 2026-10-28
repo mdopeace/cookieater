@@ -8,7 +8,7 @@ interface SearchBarProps {
 
 export default function SearchBar({ value, onChange }: SearchBarProps) {
   return (
-    <div className="px-4 py-2">
+    <div className="search-wrap">
       <Input
         icon={<FiSearch />}
         placeholder="Search cookies..."
