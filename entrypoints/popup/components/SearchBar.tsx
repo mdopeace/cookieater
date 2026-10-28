@@ -10,6 +10,7 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
   return (
     <div className="search-wrap">
       <Input
+        autoFocus
         icon={<FiSearch />}
         placeholder="Search cookies..."
         value={value}
