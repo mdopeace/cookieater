@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cookieater — a cookie manager for Chrome</title>
+    <meta
+      name="description"
+      content="Cookieater is a Chrome extension for viewing, searching, and managing cookies. Coming soon to the Chrome Web Store."
+    />
+    <meta name="theme-color" content="#16171a" />
+    <link rel="icon" href="icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Cookieater — cookies, under control" />
+    <meta
+      property="og:description"
+      content="A compact cookie manager for Chrome. Coming soon to the Chrome Web Store."
+    />
+    <meta
+      property="og:image"
+      content="https://mdopeace.github.io/cookieater/social.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      name="twitter:image"
+      content="https://mdopeace.github.io/cookieater/social.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Chrome extension · Manifest V3</p>
+          <h1>Cookies, <em>under control.</em></h1>
+          <p class="sub">
+            Cookieater is a compact Chrome extension for viewing, searching,
+            and managing cookies for the site you're on.
+          </p>
+          <span
+            class="btn store-soon"
+            style="margin-top: 24px"
+            aria-label="Chrome Web Store release coming soon"
+          >
+            <i class="fa-brands fa-chrome" aria-hidden="true"></i>
+            Chrome Web Store · Coming soon
+          </span>
+          <p style="font-size: 13px; color: var(--faint); margin: 10px 0 0">
+            A one-click store install is on the way. Manual install instructions
+            are below.
+          </p>
+        </div>
+        <div class="shot">
+          <img
+            src="screenshots/overview.png"
+            alt="Cookieater popup showing cookies for example.com and its cookie actions"
+          />
+        </div>
+      </div>
+
+      <section id="install">
+        <h2 class="lbl">Install manually</h2>
+        <div class="install">
+          <div class="card">
+            <h2>Build from source</h2>
+            <p class="tag">Requires Node.js and pnpm.</p>
+            <div class="cmd">
+              <pre><code>git clone https://github.com/mdopeace/cookieater.git
+cd cookieater</code></pre>
+              <button
+                class="copy"
+                data-copy="git clone https://github.com/mdopeace/cookieater.git
+cd cookieater"
+                aria-live="polite"
+              >
+                copy
+              </button>
+            </div>
+            <div class="cmd">
+              <code>pnpm install &amp;&amp; pnpm build</code>
+              <button
+                class="copy"
+                data-copy="pnpm install && pnpm build"
+                aria-live="polite"
+              >
+                copy
+              </button>
+            </div>
+            <p style="font-size: 13px; color: var(--muted); margin: 14px 0 0">
+              The build creates the unpacked extension in
+              <code>.output/chrome-mv3</code>.
+            </p>
+          </div>
+          <div class="card">
+            <h2>Load it in Chrome</h2>
+            <p class="tag">Chrome or another Chromium-based browser.</p>
+            <ol class="steps">
+              <li>
+                Open <code>chrome://extensions</code> and turn on Developer
+                mode.
+              </li>
+              <li>Choose <b>Load unpacked</b>.</li>
+              <li>Select the project's <code>.output/chrome-mv3</code> folder.</li>
+            </ol>
+            <a
+              class="btn"
+              href="https://github.com/mdopeace/cookieater"
+              style="margin-top: 10px"
+              ><i class="fa-brands fa-github" aria-hidden="true"></i> View source</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section id="screens">
+        <h2 class="lbl">Screens</h2>
+        <div
+          class="strip"
+          tabindex="0"
+          role="region"
+          aria-label="Cookieater screenshots, scroll horizontally"
+        >
+          <div class="frame">
+            <img
+              src="screenshots/overview.png"
+              loading="lazy"
+              alt="Cookieater showing example.com cookies and the main actions"
+            />
+          </div>
+          <div class="frame">
+            <img
+              src="screenshots/search.png"
+              loading="lazy"
+              alt="Searching for session cookies and seeing only matching results"
+            />
+          </div>
+          <div class="frame">
+            <img
+              src="screenshots/edit.png"
+              loading="lazy"
+              alt="An edited cookie with unsaved changes and the save action ready"
+            />
+          </div>
+          <div class="frame">
+            <img
+              src="screenshots/cookie-details.png"
+              loading="lazy"
+              alt="Expanded session cookie settings with Secure, HttpOnly, host-only, and session attributes"
+            />
+          </div>
+          <div class="frame">
+            <img
+              src="screenshots/add-cookie.png"
+              loading="lazy"
+              alt="A new cookie draft ready for a name and value"
+            />
+          </div>
+          <div class="frame">
+            <img
+              src="screenshots/empty-state.png"
+              loading="lazy"
+              alt="An empty cookie list with an Add a Cookie action"
+            />
+          </div>
+        </div>
+        <p style="font-size: 13px; color: var(--faint); margin: 12px 0 0">
+          Screenshots use illustrative <code>example.com</code> data.
+        </p>
+      </section>
+
+      <section id="features">
+        <h2 class="lbl">Cookie management, without the clutter</h2>
+        <div class="grid">
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            </div>
+            <h3>Search as you type</h3>
+            <p>Find cookies by name, value, or domain.</p>
+          </div>
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </div>
+            <h3>Edit in place</h3>
+            <p>Change values and settings, then save each cookie individually.</p>
+          </div>
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+            </div>
+            <h3>Inspect cookie settings</h3>
+            <p>View domain, path, expiration, SameSite, Secure, and HttpOnly.</p>
+          </div>
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-cookie-bite" aria-hidden="true"></i>
+            </div>
+            <h3>Add or delete</h3>
+            <p>Create a cookie or remove one from the current domain.</p>
+          </div>
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
+            </div>
+            <h3>Import and export</h3>
+            <p>Move cookie data with JSON files on your device.</p>
+          </div>
+          <div class="tile">
+            <div class="glyph">
+              <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+            </div>
+            <h3>Clear a domain</h3>
+            <p>Remove all cookies for the selected domain after confirmation.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="privacy">
+        <h2 class="lbl">Privacy and permissions</h2>
+        <div class="faq">
+          <div>
+            <h3>Does Cookieater send my cookies anywhere?</h3>
+            <p>
+              No. Cookieater reads and writes cookies in your browser and does
+              not send cookie data to a Cookieater server. See the
+              <a href="https://github.com/mdopeace/cookieater/blob/master/PRIVACY.md">privacy policy</a>.
+            </p>
+          </div>
+          <div>
+            <h3>Why does it need these permissions?</h3>
+            <p>
+              The <code>cookies</code> permission uses the browser's cookie
+              API. <code>&lt;all_urls&gt;</code> lets the extension identify
+              the active tab's hostname and access that site's cookies.
+            </p>
+          </div>
+          <div>
+            <h3>Which cookies does it show?</h3>
+            <p>
+              It lists cookies for the domain shown in the popup. That domain
+              defaults to the active tab's hostname and can be edited.
+            </p>
+          </div>
+          <div>
+            <h3>What browsers are supported?</h3>
+            <p>
+              Chrome and Chromium-based browsers that support Manifest V3
+              extensions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>Chrome extension · Manifest V3</span>
+        <span>
+          <a
+            class="shine"
+            href="https://github.com/mdopeace/cookieater"
+            >Source</a
+          >
+          ·
+          <a href="https://github.com/mdopeace/cookieater/issues"
+            >Report an issue</a
+          >
+          ·
+          <a href="https://github.com/mdopeace/cookieater/blob/master/README.md"
+            >README</a
+          >
+        </span>
+      </footer>
+    </div>
+
+    <script src="copy.js"></script>
+  </body>
+</html>
