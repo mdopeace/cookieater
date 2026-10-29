@@ -11,7 +11,7 @@ interface CookieCardProps {
   isNew: boolean;
   saving: boolean;
   onUpdate: (id: string, updates: Partial<CookieItem>) => void;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<boolean>;
   onSave: (id: string) => void;
 }
 
@@ -29,7 +29,9 @@ export default function CookieCard({
 
   const handleRemove = () => {
     setRemoving(true);
-    setTimeout(() => onRemove(cookie.localId), 300);
+    setTimeout(async () => {
+      if (!(await onRemove(cookie.localId))) setRemoving(false);
+    }, 300);
   };
 
   return (

@@ -22,6 +22,7 @@ export default function App() {
     updateCookie,
     removeCookie,
     saveCookie,
+    importCookies,
     clearAll,
     reload,
   } = useCookies(domain);
@@ -49,7 +50,7 @@ export default function App() {
     try {
       await saveCookie(localId);
     } catch (e) {
-      setSaveError((e as Error).message);
+      setSaveError(`Save failed: ${(e as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -83,9 +84,12 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (data: CookieItem[]) => {
-    for (const item of data) {
-      addCookie({
+  const handleImport = async (data: CookieItem[]) => {
+    const items: CookieItem[] = data
+      .filter(
+        (item) => item && typeof item === "object" && !Array.isArray(item),
+      )
+      .map((item) => ({
         localId: crypto.randomUUID(),
         name: item.name ?? "",
         value: item.value ?? "",
@@ -97,7 +101,17 @@ export default function App() {
         sameSite: item.sameSite ?? "lax",
         session: item.session ?? false,
         hostOnly: item.hostOnly ?? false,
-      });
+        partitionKey: item.partitionKey,
+      }));
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await importCookies(items);
+    } catch (e) {
+      setSaveError(`Import failed: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -133,7 +147,7 @@ export default function App() {
       <div className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden min-h-0">
           <div className="feedback feedback-error whitespace-pre-wrap">
-            {`Save failed:\n${saveError}`}
+            {saveError}
           </div>
         </div>
       </div>

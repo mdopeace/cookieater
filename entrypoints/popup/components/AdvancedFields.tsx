@@ -7,6 +7,13 @@ interface AdvancedFieldsProps {
   onChange: (id: string, updates: Partial<CookieItem>) => void;
 }
 
+// datetime-local has no timezone; format/parse in local time, not UTC.
+const toLocalInputValue = (seconds: number) => {
+  const d = new Date(seconds * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function AdvancedFields({
   cookie,
   onChange,
@@ -14,10 +21,7 @@ export default function AdvancedFields({
   const set = (updates: Partial<CookieItem>) =>
     onChange(cookie.localId, updates);
 
-  const expiresValue =
-    cookie.expires > 0
-      ? new Date(cookie.expires * 1000).toISOString().slice(0, 16)
-      : "";
+  const expiresValue = cookie.expires > 0 ? toLocalInputValue(cookie.expires) : "";
 
   return (
     <div className="advanced-fields">

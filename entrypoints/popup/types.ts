@@ -10,4 +10,8 @@ export interface CookieItem {
   sameSite: "unspecified" | "no_restriction" | "lax" | "strict";
   session: boolean;
   hostOnly: boolean;
+  partitionKey?: {
+    topLevelSite?: string;
+    hasCrossSiteAncestor?: boolean;
+  };
 }

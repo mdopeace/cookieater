@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: "cookieater",
     description: "A friendly cookie editor",
-    permissions: ["cookies", "activeTab", "storage"],
+    permissions: ["cookies"],
     host_permissions: ["<all_urls>"],
   },
   vite: () => ({

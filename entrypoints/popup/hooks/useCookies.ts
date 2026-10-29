@@ -15,6 +15,7 @@ function toCookieItem(c: {
   sameSite?: string;
   session: boolean;
   hostOnly: boolean;
+  partitionKey?: CookieItem["partitionKey"];
 }): CookieItem {
   return {
     localId: crypto.randomUUID(),
@@ -28,7 +29,39 @@ function toCookieItem(c: {
     sameSite: (c.sameSite ?? "unspecified") as CookieItem["sameSite"],
     session: c.session,
     hostOnly: c.hostOnly,
+    partitionKey: c.partitionKey,
   };
+}
+
+// Non-secure cookies work over http; secure cookies can only be addressed over https.
+const cookieUrl = (cookie: CookieItem, secure: boolean) =>
+  `${secure ? "https" : "http"}://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
+
+async function persistCookie(cookie: CookieItem) {
+  const secure =
+    cookie.sameSite === "no_restriction" ? true : cookie.secure;
+  await browser.cookies.set({
+    url: cookieUrl(cookie, secure),
+    name: cookie.name,
+    value: cookie.value,
+    // Omitting domain keeps the cookie host-only.
+    domain: cookie.hostOnly ? undefined : cookie.domain.replace(/^\./, ""),
+    path: normalPath(cookie.path),
+    expirationDate: cookie.expires >= 0 ? cookie.expires : undefined,
+    secure,
+    httpOnly: cookie.httpOnly,
+    sameSite: cookie.sameSite,
+    partitionKey: cookie.partitionKey,
+  });
+}
+
+async function removeCookieFromBrowser(cookie: CookieItem) {
+  const removed = await browser.cookies.remove({
+    name: cookie.name,
+    url: cookieUrl(cookie, cookie.secure),
+    partitionKey: cookie.partitionKey,
+  });
+  if (!removed) throw new Error(`Cookie "${cookie.name}" was not found.`);
 }
 
 export function useCookies(domain: string) {
@@ -75,9 +108,9 @@ export function useCookies(domain: string) {
   );
 
   const removeCookie = useCallback(
-    async (localId: string) => {
+    async (localId: string): Promise<boolean> => {
       const cookie = cookies.find((c) => c.localId === localId);
-      if (!cookie) return;
+      if (!cookie) return false;
 
       if (newIds.has(localId)) {
         setCookies((prev) => prev.filter((c) => c.localId !== localId));
@@ -91,20 +124,21 @@ export function useCookies(domain: string) {
           s.delete(localId);
           return s;
         });
-        return;
+        return true;
       }
 
       try {
-        const url = `https://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
-        await browser.cookies.remove({ name: cookie.name, url });
+        await removeCookieFromBrowser(cookie);
         setCookies((prev) => prev.filter((c) => c.localId !== localId));
         setDirtyIds((prev) => {
           const s = new Set(prev);
           s.delete(localId);
           return s;
         });
+        return true;
       } catch (e) {
         setError((e as Error).message);
+        return false;
       }
     },
     [cookies, newIds],
@@ -115,21 +149,7 @@ export function useCookies(domain: string) {
       const cookie = cookies.find((c) => c.localId === localId);
       if (!cookie) return;
 
-      const np = normalPath(cookie.path);
-      const url = `https://${cookie.domain.replace(/^\./, "")}${np}`;
-      const sameSite = cookie.sameSite;
-
-      await browser.cookies.set({
-        url,
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain.replace(/^\./, ""),
-        path: np,
-        expirationDate: cookie.expires >= 0 ? cookie.expires : undefined,
-        secure: sameSite === "no_restriction" ? true : cookie.secure,
-        httpOnly: cookie.httpOnly,
-        sameSite,
-      });
+      await persistCookie(cookie);
 
       setDirtyIds((prev) => {
         const s = new Set(prev);
@@ -145,12 +165,31 @@ export function useCookies(domain: string) {
     [cookies],
   );
 
+  const importCookies = useCallback(
+    async (items: CookieItem[]) => {
+      let failed = 0;
+      for (const item of items) {
+        try {
+          await persistCookie(item);
+        } catch {
+          failed++;
+        }
+      }
+      await load();
+      if (failed) {
+        throw new Error(
+          `${failed} of ${items.length} cookies could not be imported.`,
+        );
+      }
+    },
+    [load],
+  );
+
   const clearAll = useCallback(async () => {
     for (const c of cookies) {
       if (newIds.has(c.localId)) continue;
       try {
-        const url = `https://${c.domain.replace(/^\./, "")}${normalPath(c.path)}`;
-        await browser.cookies.remove({ name: c.name, url });
+        await removeCookieFromBrowser(c);
       } catch {
         /* skip per-cookie errors during clear all */
       }
@@ -170,6 +209,7 @@ export function useCookies(domain: string) {
     updateCookie,
     removeCookie,
     saveCookie,
+    importCookies,
     clearAll,
     reload: load,
   };
