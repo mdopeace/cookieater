@@ -206,13 +206,13 @@ code,
 .btn:hover {
   opacity: 0.85;
 }
-.btn.store-soon {
+.btn.store-status {
   cursor: default;
 }
-.btn.store-soon:hover {
+.btn.store-status:hover {
   opacity: 1;
 }
-.btn.store-soon i {
+.btn.store-status i {
   color: var(--bg);
 }
 .steps {
@@ -317,6 +317,12 @@ code,
   font-size: 13px;
   color: var(--muted);
   margin: 0;
+}
+.faq a {
+  color: var(--muted);
+}
+.faq a:hover {
+  color: var(--text);
 }
 
 /* footer */
