@@ -122,18 +122,19 @@ export default function App() {
 
   return (
     <div className="popup-shell flex flex-col h-full min-h-[400px]">
-      <header className="popup-header">
-        <img className="brand-logo" src={cookieaterIconUrl} alt="" />
-        <div className="brand-lockup">
-          <span className="brand-name">Cookieater</span>
-          <span className="brand-caption">Cookie manager</span>
-        </div>
-        <span className="popup-header-count">
-          {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
-        </span>
-      </header>
-
-      <DomainBar domain={domain} onDomainChange={setDomain} onRefresh={reload} />
+      <div className="popup-sticky-header">
+        <header className="popup-header">
+          <img className="brand-logo" src={cookieaterIconUrl} alt="" />
+          <div className="brand-lockup">
+            <span className="brand-name">Cookieater</span>
+            <span className="brand-caption">Cookie manager</span>
+          </div>
+          <span className="popup-header-count">
+            {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
+          </span>
+        </header>
+        <DomainBar domain={domain} onDomainChange={setDomain} onRefresh={reload} />
+      </div>
       <SearchBar value={search} onChange={setSearch} />
 
       <div className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>

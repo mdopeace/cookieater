@@ -67,6 +67,12 @@ select:focus-visible {
   background: var(--window);
 }
 
+.popup-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .popup-header {
   display: flex;
   min-height: 60px;

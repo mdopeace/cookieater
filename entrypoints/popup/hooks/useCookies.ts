@@ -9,7 +9,7 @@ function toCookieItem(c: {
   value: string;
   domain: string;
   path: string;
-  expires?: number;
+  expirationDate?: number;
   secure: boolean;
   httpOnly: boolean;
   sameSite?: string;
@@ -23,7 +23,7 @@ function toCookieItem(c: {
     value: c.value,
     domain: c.domain,
     path: c.path,
-    expires: c.expires ?? -1,
+    expires: c.expirationDate ?? -1,
     secure: c.secure,
     httpOnly: c.httpOnly,
     sameSite: (c.sameSite ?? "unspecified") as CookieItem["sameSite"],
