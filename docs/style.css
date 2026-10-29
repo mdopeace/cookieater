@@ -318,6 +318,12 @@ code,
   color: var(--muted);
   margin: 0;
 }
+.faq a {
+  color: var(--muted);
+}
+.faq a:hover {
+  color: var(--text);
+}
 
 /* footer */
 footer {
