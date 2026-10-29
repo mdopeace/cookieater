@@ -68,3 +68,20 @@ pnpm zip      # package for the Chrome Web Store
 
 Use [overview.png](docs/screenshots/overview.png) (640×400) as the Chrome Web
 Store screenshot. The store listing also needs a hosted privacy policy URL.
+
+After creating the item and completing its initial store listing, add these
+repository Actions secrets. Follow Google's
+[Chrome Web Store API setup guide](https://developer.chrome.com/docs/webstore/using-api)
+to create OAuth credentials and a refresh token with the Chrome Web Store
+scope.
+
+- `CWS_PUBLISHER_ID`
+- `CWS_EXTENSION_ID`
+- `CWS_CLIENT_ID`
+- `CWS_CLIENT_SECRET`
+- `CWS_REFRESH_TOKEN`
+
+Bump the extension version in `package.json`, then run **Publish Chrome Web
+Store** from the Actions tab. The workflow builds and validates the extension,
+uploads it, and submits it for store review. The Chrome Web Store API only
+updates an existing item; create the initial listing in the Developer Dashboard.
