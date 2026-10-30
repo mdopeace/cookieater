@@ -56,6 +56,38 @@ export default function App() {
     }
   };
 
+  const handleSaveAll = async () => {
+    setSaving(true);
+    setSaveError(null);
+    const failures: string[] = [];
+    for (const localId of dirtyIds) {
+      try {
+        await saveCookie(localId);
+      } catch (e) {
+        failures.push((e as Error).message);
+      }
+    }
+    if (failures.length) {
+      setSaveError(
+        `${failures.length} cookie${failures.length === 1 ? "" : "s"} could not be saved. ${failures.join(" ")}`,
+      );
+    }
+    setSaving(false);
+  };
+
+  const handleDomainChange = (nextDomain: string) => {
+    if (nextDomain === domain || dirtyIds.size === 0) {
+      setDomain(nextDomain);
+      return;
+    }
+    if (confirm("Discard unsaved cookie changes?")) setDomain(nextDomain);
+  };
+
+  const handleRefresh = () => {
+    if (dirtyIds.size > 0 && !confirm("Discard unsaved cookie changes?")) return;
+    reload();
+  };
+
   const handleAdd = () => {
     const blank: CookieItem = {
       localId: crypto.randomUUID(),
@@ -121,7 +153,7 @@ export default function App() {
   };
 
   return (
-    <div className="popup-shell flex flex-col h-full min-h-[400px]">
+    <div className="popup-shell flex flex-col h-full min-h-100">
       <div className="popup-sticky-header">
         <header className="popup-header">
           <img className="brand-logo" src={cookieaterIconUrl} alt="" />
@@ -133,7 +165,7 @@ export default function App() {
             {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
           </span>
         </header>
-        <DomainBar domain={domain} onDomainChange={setDomain} onRefresh={reload} />
+        <DomainBar domain={domain} onDomainChange={handleDomainChange} onRefresh={handleRefresh} />
       </div>
       <SearchBar value={search} onChange={setSearch} />
 
@@ -192,6 +224,8 @@ export default function App() {
 
       <ActionBar
         onAdd={handleAdd}
+        onSaveAll={handleSaveAll}
+        canSaveAll={dirtyIds.size > 0 && !saving}
         onExport={handleExport}
         onImport={handleImport}
         onClearAll={handleClearAll}

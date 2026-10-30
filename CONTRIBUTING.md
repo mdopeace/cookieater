@@ -22,9 +22,17 @@ Before opening a pull request, run the checks used by CI:
 ```sh
 node --test .github/scripts/resolve-release-version.test.mjs
 pnpm compile
+pnpm compile:e2e
 pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e:run
 pnpm zip
 ```
+
+The end-to-end suite launches an isolated Chromium profile with the unpacked
+extension and verifies cookie operations against Chromium's real cookie store.
+On Linux, install browser system dependencies with
+`pnpm exec playwright install --with-deps chromium`.
 
 Pull requests run these checks automatically. Please describe the user-facing
 change and include screenshots when a change affects the interface.

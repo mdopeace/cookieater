@@ -23,5 +23,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: node --test .github/scripts/resolve-release-version.test.mjs
       - run: pnpm compile
+      - run: pnpm compile:e2e
       - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e:run
       - run: pnpm zip
