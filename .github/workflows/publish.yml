@@ -2,9 +2,24 @@ name: Publish Chrome Web Store
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump (ignored when an exact version is entered)
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+        required: true
+      version:
+        description: Exact MAJOR.MINOR.PATCH version (optional)
+        type: string
+        required: false
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: chrome-web-store-publish
@@ -23,10 +38,94 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Fetch latest main
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+      - name: Verify Chrome Web Store secrets are configured
+        env:
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          const names = [
+            "CWS_PUBLISHER_ID",
+            "CWS_EXTENSION_ID",
+            "CWS_CLIENT_ID",
+            "CWS_CLIENT_SECRET",
+            "CWS_REFRESH_TOKEN",
+          ];
+          const missing = names.filter((name) => !process.env[name]);
+          if (missing.length) {
+            throw new Error(`Missing GitHub Actions secrets: ${missing.join(", ")}`);
+          }
+          NODE
+      - name: Test release version resolver
+        run: node --test .github/scripts/resolve-release-version.test.mjs
+      - name: Resolve release version
+        id: resolve
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXACT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="$(node .github/scripts/resolve-release-version.mjs "$BUMP" "$EXACT_VERSION")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Create and merge version bump PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="release/v${VERSION}-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
+          VERSION="$VERSION" node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+
+          const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+          packageJson.version = process.env.VERSION;
+          await writeFile("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+          pnpm install --lockfile-only --frozen-lockfile
+          git add package.json pnpm-lock.yaml
+          git commit -m "Bump version to ${VERSION}"
+          git push --set-upstream origin "$BRANCH"
+
+          PR_URL="$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Release v${VERSION}" \
+            --body "Bumps the extension version to ${VERSION} for Chrome Web Store release.")"
+          gh pr merge "$PR_URL" --squash --delete-branch
+
+          git checkout main
+          git fetch origin main
+          git reset --hard origin/main
       - run: pnpm install --frozen-lockfile
       - run: pnpm compile
       - run: pnpm build
       - run: pnpm zip
+      - name: Verify packaged version
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+
+          const manifest = JSON.parse(
+            await readFile(".output/chrome-mv3/manifest.json", "utf8"),
+          );
+          if (manifest.version !== process.env.VERSION) {
+            throw new Error(
+              `Built extension version ${manifest.version} does not match ${process.env.VERSION}`,
+            );
+          }
+          NODE
       - name: Upload and publish extension
         env:
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
