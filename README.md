@@ -55,60 +55,8 @@ data to a Cookieater server. See the [privacy policy](PRIVACY.md).
 - `cookies` — use the browser's cookie API to read and write cookies.
 - `<all_urls>` — identify the active tab's hostname and access cookies on sites.
 
-## Development
+## Contributing
 
-```sh
-pnpm dev      # live-reloading extension
-pnpm compile  # type-check
-pnpm build    # production build in .output/chrome-mv3
-pnpm zip      # package for the Chrome Web Store
-```
-
-## Publishing
-
-The initial Chrome Web Store listing has been submitted and is pending review.
-Do not run the publishing workflow while that review is in progress.
-
-For future releases, run **Publish Chrome Web Store** from the Actions tab on
-`main`. Choose a patch, minor, or major bump, or enter an exact
-`MAJOR.MINOR.PATCH` version. The workflow creates and squash-merges a version
-bump PR, builds and validates the extension, uploads it to the existing store
-item, and submits the update for review. It does not create GitHub Releases.
-
-The workflow requires these repository Actions secrets in **Settings → Secrets
-and variables → Actions**:
-
-- `CWS_PUBLISHER_ID`
-- `CWS_EXTENSION_ID`
-- `CWS_CLIENT_ID`
-- `CWS_CLIENT_SECRET`
-- `CWS_REFRESH_TOKEN`
-
-`CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID` are already configured for this
-repository. To create the remaining OAuth credentials:
-
-1. In the [Google Cloud Console](https://console.cloud.google.com/), select or
-   create a project and enable the **Chrome Web Store API**.
-2. Configure the OAuth consent screen and add your Google account as a test
-   user if the app is in testing. For a durable workflow token, note that
-   refresh tokens issued while an external consent screen is in **Testing**
-   expire after seven days; move the app to **In production** and complete any
-   verification Google requires.
-3. Under **APIs & Services → Credentials**, create an OAuth client ID for a
-   **Web application** and add
-   `https://developers.google.com/oauthplayground` as an authorized redirect
-   URI.
-4. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground),
-   enable **Use your own OAuth credentials** in its settings, and enter the
-   client ID and client secret.
-5. In **Step 1**, enter the scope
-   `https://www.googleapis.com/auth/chromewebstore`, authorize with the Google
-   account that owns the Web Store item, then exchange the authorization code
-   for tokens in **Step 2**.
-6. In the repository's **Settings → Secrets and variables → Actions**, add the
-   client ID as `CWS_CLIENT_ID`, client secret as `CWS_CLIENT_SECRET`, and
-   refresh token as `CWS_REFRESH_TOKEN`.
-
-Keep the client secret and refresh token private. See Google's
-[Chrome Web Store API guide](https://developer.chrome.com/docs/webstore/using-api)
-for the official setup and API details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and validation steps.
+Maintainers can find release instructions in
+[docs/releasing.md](docs/releasing.md).
