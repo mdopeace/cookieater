@@ -55,6 +55,10 @@ data to a Cookieater server. See the [privacy policy](PRIVACY.md).
 - `cookies` — use the browser's cookie API to read and write cookies.
 - `<all_urls>` — identify the active tab's hostname and access cookies on sites.
 
+## License
+
+[MIT](LICENSE)
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development and validation steps.
