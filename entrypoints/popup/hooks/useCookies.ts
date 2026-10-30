@@ -58,7 +58,8 @@ async function persistCookie(cookie: CookieItem) {
 async function removeCookieFromBrowser(cookie: CookieItem) {
   const removed = await browser.cookies.remove({
     name: cookie.name,
-    url: cookieUrl(cookie, cookie.secure),
+    // SameSite=None cookies are always Secure, including after persistence.
+    url: cookieUrl(cookie, cookie.sameSite === "no_restriction" || cookie.secure),
     partitionKey: cookie.partitionKey,
   });
   if (!removed) throw new Error(`Cookie "${cookie.name}" was not found.`);
@@ -151,11 +152,25 @@ export function useCookies(domain: string) {
 
       await persistCookie(cookie);
 
+      const effectiveSecure =
+        cookie.sameSite === "no_restriction" ? true : cookie.secure;
+
       setDirtyIds((prev) => {
         const s = new Set(prev);
         s.delete(localId);
         return s;
       });
+      setCookies((prev) =>
+        prev.map((item) =>
+          item.localId === localId
+            ? {
+                ...item,
+                secure: effectiveSecure,
+                session: item.expires < 0,
+              }
+            : item,
+        ),
+      );
       setNewIds((prev) => {
         const s = new Set(prev);
         s.delete(localId);
@@ -186,17 +201,26 @@ export function useCookies(domain: string) {
   );
 
   const clearAll = useCallback(async () => {
+    let failed = 0;
+    const failedIds = new Set<string>();
     for (const c of cookies) {
       if (newIds.has(c.localId)) continue;
       try {
         await removeCookieFromBrowser(c);
       } catch {
-        /* skip per-cookie errors during clear all */
+        failed++;
+        failedIds.add(c.localId);
       }
     }
-    setCookies([]);
+    if (failed) {
+      setError(`${failed} cookie${failed === 1 ? "" : "s"} could not be cleared.`);
+      setCookies((prev) => prev.filter((item) => failedIds.has(item.localId)));
+    } else {
+      setCookies([]);
+    }
     setDirtyIds(new Set());
     setNewIds(new Set());
+    return failed;
   }, [cookies, newIds]);
 
   return {

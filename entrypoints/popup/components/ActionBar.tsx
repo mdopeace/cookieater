@@ -10,6 +10,8 @@ import type { CookieItem } from "../types";
 
 interface ActionBarProps {
   onAdd: () => void;
+  onSaveAll: () => void;
+  canSaveAll: boolean;
   onExport: () => void;
   onImport: (data: CookieItem[]) => void;
   onClearAll: () => void;
@@ -17,6 +19,8 @@ interface ActionBarProps {
 
 export default function ActionBar({
   onAdd,
+  onSaveAll,
+  canSaveAll,
   onExport,
   onImport,
   onClearAll,
@@ -49,6 +53,14 @@ export default function ActionBar({
           onClick={onAdd}
         >
           Add Cookie
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onSaveAll}
+          disabled={!canSaveAll}
+        >
+          Save All
         </Button>
         <Button
           variant="ghost"
