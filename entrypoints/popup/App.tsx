@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import cookieaterIconUrl from "../../assets/icon.png";
+import headerIconUrl from "../../assets/header-icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
 import DomainBar from "./components/DomainBar";
@@ -84,7 +84,8 @@ export default function App() {
   };
 
   const handleRefresh = () => {
-    if (dirtyIds.size > 0 && !confirm("Discard unsaved cookie changes?")) return;
+    if (dirtyIds.size > 0 && !confirm("Discard unsaved cookie changes?"))
+      return;
     reload();
   };
 
@@ -156,7 +157,7 @@ export default function App() {
     <div className="popup-shell flex flex-col h-full min-h-100">
       <div className="popup-sticky-header">
         <header className="popup-header">
-          <img className="brand-logo" src={cookieaterIconUrl} alt="" />
+          <img className="brand-logo" src={headerIconUrl} alt="" />
           <div className="brand-lockup">
             <span className="brand-name">Cookieater</span>
             <span className="brand-caption">Cookie manager</span>
@@ -165,19 +166,25 @@ export default function App() {
             {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
           </span>
         </header>
-        <DomainBar domain={domain} onDomainChange={handleDomainChange} onRefresh={handleRefresh} />
+        <DomainBar
+          domain={domain}
+          onDomainChange={handleDomainChange}
+          onRefresh={handleRefresh}
+        />
       </div>
       <SearchBar value={search} onChange={setSearch} />
 
-      <div className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
         <div className="overflow-hidden min-h-0">
-          <div className="feedback feedback-error">
-            {error}
-          </div>
+          <div className="feedback feedback-error">{error}</div>
         </div>
       </div>
 
-      <div className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
         <div className="overflow-hidden min-h-0">
           <div className="feedback feedback-error whitespace-pre-wrap">
             {saveError}
@@ -188,12 +195,16 @@ export default function App() {
       {loading ? (
         <div className="popup-state flex-1">
           <span className="popup-state-title">Loading cookies</span>
-          <span className="popup-state-copy">Checking this site for stored cookies…</span>
+          <span className="popup-state-copy">
+            Checking this site for stored cookies…
+          </span>
         </div>
       ) : cookies.length === 0 ? (
         <div className="popup-state flex-1">
           <span className="popup-state-title">No cookies found</span>
-          <span className="popup-state-copy">There are no cookies for this domain yet.</span>
+          <span className="popup-state-copy">
+            There are no cookies for this domain yet.
+          </span>
           <Button variant="secondary" size="sm" onClick={handleAdd}>
             Add a Cookie
           </Button>
@@ -201,7 +212,9 @@ export default function App() {
       ) : filtered.length === 0 ? (
         <div className="popup-state flex-1">
           <span className="popup-state-title">No matching cookies</span>
-          <span className="popup-state-copy">No cookies match “{search}”. Try another search.</span>
+          <span className="popup-state-copy">
+            No cookies match “{search}”. Try another search.
+          </span>
         </div>
       ) : (
         <div className="cookie-list flex-1 overflow-y-auto">
