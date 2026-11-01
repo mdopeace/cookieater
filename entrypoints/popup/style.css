@@ -107,8 +107,7 @@ a:focus-visible {
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
+  margin-left: -2px;
   object-fit: contain;
 }
 
