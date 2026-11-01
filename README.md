@@ -4,7 +4,7 @@ A friendly Chrome extension for viewing, searching, and editing cookies on the
 current site. Add, update, import, export, or remove cookies from one compact
 popup.
 
-<img src="docs/screenshots/overview.png" alt="Cookieater showing example.com cookies and the search, add, import, export, and clear actions" width="300">
+<img src="docs/screenshots/overview.png" alt="Cookieater showing five illustrative example.com cookies, including a session, midnight-amber theme, privacy choice, and salted-caramel flavor preference" width="300">
 
 ## Install
 
@@ -41,7 +41,7 @@ unpacked**, and select `.output/chrome-mv3`.
 <p align="center">
   <img src="docs/screenshots/edit.png" alt="An edited cookie with its unsaved changes indicated and the save action ready" height="260">
   <img src="docs/screenshots/cookie-details.png" alt="Expanded session cookie settings showing its domain, path, expiration, SameSite, Secure, HttpOnly, host-only, and session attributes" height="260">
-  <img src="docs/screenshots/add-cookie.png" alt="A new cookie draft ready for its name and value" height="260">
+  <img src="docs/screenshots/add-cookie.png" alt="A draft flavor_note cookie with the value cardamom-sugar, ready to save" height="260">
 </p>
 
 All screenshots use illustrative `example.com` data, not cookies from a real
