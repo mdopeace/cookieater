@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FiSave, FiTrash2, FiChevronRight } from "react-icons/fi";
 import Card from "./ui/Card";
 import Input from "./ui/Input";
@@ -26,16 +26,29 @@ export default function CookieCard({
 }: CookieCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
 
   const handleRemove = () => {
     setRemoving(true);
+    const article = articleRef.current;
+    const focusTarget =
+      article?.nextElementSibling?.querySelector<HTMLElement>("input, button") ??
+      article?.previousElementSibling?.querySelector<HTMLElement>("input, button") ??
+      document.getElementById("add-cookie-button");
     setTimeout(async () => {
-      if (!(await onRemove(cookie.localId))) setRemoving(false);
+      if (!(await onRemove(cookie.localId))) {
+        setRemoving(false);
+      } else {
+        focusTarget?.focus();
+      }
     }, 300);
   };
 
   return (
-    <div
+    <article
+      ref={articleRef}
+      role="listitem"
+      aria-label={`Cookie: ${cookie.name || "new cookie"}${isDirty ? ", unsaved changes" : ""}`}
       className={`transition-all duration-200 ease-in-out
         ${removing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
         ${isNew ? "animate-slide-down" : ""}`}
@@ -47,25 +60,28 @@ export default function CookieCard({
             className="cookie-expand"
             aria-label={`${expanded ? "Collapse" : "Expand"} ${cookie.name || "cookie"} details`}
             aria-expanded={expanded}
+            aria-controls={`cookie-details-${cookie.localId}`}
           >
             <FiChevronRight
               size={14}
               className={`transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+              aria-hidden="true"
             />
           </button>
 
           <div className="cookie-fields">
             <Input
+              id={`cookie-name-${cookie.localId}`}
               value={cookie.name}
               onChange={(e) => onUpdate(cookie.localId, { name: e.target.value })}
               placeholder="Name"
-              aria-label="Cookie name"
+              aria-label={`${cookie.name || "New cookie"} name`}
             />
             <Input
               value={cookie.value}
               onChange={(e) => onUpdate(cookie.localId, { value: e.target.value })}
               placeholder="Value"
-              aria-label="Cookie value"
+              aria-label={`${cookie.name || "New cookie"} value`}
             />
           </div>
 
@@ -74,23 +90,26 @@ export default function CookieCard({
               onClick={() => onSave(cookie.localId)}
               disabled={!isDirty || saving}
               className={`cookie-icon-action ${isDirty && !saving ? "cookie-save-ready" : ""}`}
-              title="Save cookie"
               aria-label={`Save ${cookie.name || "cookie"}`}
             >
-              <FiSave size={15} />
+              <FiSave size={15} aria-hidden="true" />
             </button>
             <button
               onClick={handleRemove}
               className="cookie-icon-action cookie-delete"
-              title="Delete cookie"
               aria-label={`Delete ${cookie.name || "cookie"}`}
             >
-              <FiTrash2 size={15} />
+              <FiTrash2 size={15} aria-hidden="true" />
             </button>
           </div>
         </div>
 
         <div
+          id={`cookie-details-${cookie.localId}`}
+          role="region"
+          aria-label={`${cookie.name || "Cookie"} settings`}
+          aria-hidden={!expanded}
+          inert={!expanded}
           className={`grid transition-all duration-300 ease-in-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden min-h-0">
@@ -98,6 +117,6 @@ export default function CookieCard({
           </div>
         </div>
       </Card>
-    </div>
+    </article>
   );
 }
