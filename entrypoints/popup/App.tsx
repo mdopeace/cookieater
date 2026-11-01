@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import headerIconUrl from "../../assets/header-icon.png";
+import { useState, useMemo, useEffect, useRef } from "react";
+import cookieEaterLogoUrl from "../../assets/store-icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
 import DomainBar from "./components/DomainBar";
@@ -11,6 +11,7 @@ import Button from "./components/ui/Button";
 export default function App() {
   const [domain, setDomain] = useState("");
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const {
     cookies,
@@ -29,6 +30,37 @@ export default function App() {
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest("input, textarea, select, [contenteditable='true']"));
+      const isSlash =
+        event.key === "/" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !isTyping;
+      const isCommandK =
+        event.key.toLowerCase() === "k" &&
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey;
+
+      if (!isSlash && !isCommandK) return;
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+
+    document.addEventListener("keydown", focusSearch);
+    return () => document.removeEventListener("keydown", focusSearch);
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -104,6 +136,9 @@ export default function App() {
       hostOnly: false,
     };
     addCookie(blank);
+    requestAnimationFrame(() =>
+      document.getElementById(`cookie-name-${blank.localId}`)?.focus(),
+    );
   };
 
   const handleExport = () => {
@@ -157,12 +192,12 @@ export default function App() {
     <div className="popup-shell flex flex-col h-full min-h-100">
       <div className="popup-sticky-header">
         <header className="popup-header">
-          <img className="brand-logo" src={headerIconUrl} alt="" />
+          <img className="brand-logo" src={cookieEaterLogoUrl} alt="" />
           <div className="brand-lockup">
-            <span className="brand-name">Cookieater</span>
-            <span className="brand-caption">Cookie manager</span>
+            <h1 className="brand-name">Cookieater</h1>
+            <span className="brand-caption">Cookie workshop · 01</span>
           </div>
-          <span className="popup-header-count">
+          <span className="popup-header-count" role="status" aria-live="polite">
             {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
           </span>
         </header>
@@ -172,69 +207,90 @@ export default function App() {
           onRefresh={handleRefresh}
         />
       </div>
-      <SearchBar value={search} onChange={setSearch} />
+      <span className="visually-hidden" role="status" aria-live="polite">
+        {saving ? "Saving cookie changes" : ""}
+      </span>
+      <main className="popup-main flex min-h-0 flex-1 flex-col">
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          inputRef={searchInputRef}
+        />
 
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-      >
-        <div className="overflow-hidden min-h-0">
-          <div className="feedback feedback-error">{error}</div>
-        </div>
-      </div>
-
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-      >
-        <div className="overflow-hidden min-h-0">
-          <div className="feedback feedback-error whitespace-pre-wrap">
-            {saveError}
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className="feedback feedback-error" role="alert" aria-live="assertive">
+              {error}
+            </div>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="popup-state flex-1">
-          <span className="popup-state-title">Loading cookies</span>
-          <span className="popup-state-copy">
-            Checking this site for stored cookies…
-          </span>
-        </div>
-      ) : cookies.length === 0 ? (
-        <div className="popup-state flex-1">
-          <span className="popup-state-title">No cookies found</span>
-          <span className="popup-state-copy">
-            There are no cookies for this domain yet.
-          </span>
-          <Button variant="secondary" size="sm" onClick={handleAdd}>
-            Add a Cookie
-          </Button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="popup-state flex-1">
-          <span className="popup-state-title">No matching cookies</span>
-          <span className="popup-state-copy">
-            No cookies match “{search}”. Try another search.
-          </span>
-        </div>
-      ) : (
-        <div className="cookie-list flex-1 overflow-y-auto">
-          <div className="cookie-list-inner">
-            {filtered.map((cookie) => (
-              <CookieCard
-                key={cookie.localId}
-                cookie={cookie}
-                isDirty={dirtyIds.has(cookie.localId)}
-                isNew={newIds.has(cookie.localId)}
-                saving={saving}
-                onUpdate={updateCookie}
-                onRemove={removeCookie}
-                onSave={handleSaveOne}
-              />
-            ))}
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className="feedback feedback-error whitespace-pre-wrap" role="alert" aria-live="assertive">
+              {saveError}
+            </div>
           </div>
         </div>
-      )}
 
+        {loading ? (
+          <div className="popup-state flex-1" role="status" aria-live="polite">
+            <span className="popup-state-title">Loading cookies</span>
+            <span className="popup-state-copy">
+              Checking this site for stored cookies…
+            </span>
+          </div>
+        ) : cookies.length === 0 ? (
+          <div className="popup-state flex-1">
+            <span className="popup-state-title">No cookies found</span>
+            <span className="popup-state-copy">
+              There are no cookies for this domain yet.
+            </span>
+            <Button variant="secondary" size="sm" onClick={handleAdd}>
+              Add a Cookie
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="popup-state flex-1">
+            <span className="popup-state-title">No matching cookies</span>
+            <span className="popup-state-copy">
+              No cookies match “{search}”. Try another search.
+            </span>
+          </div>
+        ) : (
+          <div
+            className="cookie-list flex-1 overflow-y-auto"
+            role="list"
+            aria-label="Cookies"
+          >
+            <div className="cookie-list-inner">
+              {filtered.map((cookie) => (
+                <CookieCard
+                  key={cookie.localId}
+                  cookie={cookie}
+                  isDirty={dirtyIds.has(cookie.localId)}
+                  isNew={newIds.has(cookie.localId)}
+                  saving={saving}
+                  onUpdate={updateCookie}
+                  onRemove={removeCookie}
+                  onSave={handleSaveOne}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <span className="visually-hidden" role="status" aria-live="polite">
+          {search
+            ? `${filtered.length} matching cookie${filtered.length === 1 ? "" : "s"}`
+            : ""}
+        </span>
+
+      </main>
       <ActionBar
         onAdd={handleAdd}
         onSaveAll={handleSaveAll}

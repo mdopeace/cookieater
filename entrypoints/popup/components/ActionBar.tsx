@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   FiPlus,
   FiDownload,
@@ -26,17 +26,23 @@ export default function ActionBar({
   onClearAll,
 }: ActionBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState("");
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportError("");
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        if (Array.isArray(data)) onImport(data);
+        if (Array.isArray(data)) {
+          onImport(data);
+        } else {
+          setImportError("Import failed. Choose a JSON array of cookies.");
+        }
       } catch {
-        alert("Invalid JSON file");
+        setImportError("Import failed. The selected file is not valid JSON.");
       }
     };
     reader.readAsText(file);
@@ -44,12 +50,18 @@ export default function ActionBar({
   };
 
   return (
-    <div className="action-bar">
+    <footer className="action-bar" aria-label="Cookie actions">
+      {importError && (
+        <p className="feedback feedback-error" role="alert">
+          {importError}
+        </p>
+      )}
       <div className="action-bar-buttons">
         <Button
+          id="add-cookie-button"
           variant="secondary"
           size="sm"
-          icon={<FiPlus />}
+          icon={<FiPlus aria-hidden="true" />}
           onClick={onAdd}
         >
           Add Cookie
@@ -65,7 +77,7 @@ export default function ActionBar({
         <Button
           variant="ghost"
           size="sm"
-          icon={<FiDownload />}
+          icon={<FiDownload aria-hidden="true" />}
           onClick={onExport}
         >
           Export
@@ -73,7 +85,7 @@ export default function ActionBar({
         <Button
           variant="ghost"
           size="sm"
-          icon={<FiUpload />}
+          icon={<FiUpload aria-hidden="true" />}
           onClick={() => fileRef.current?.click()}
         >
           Import
@@ -81,7 +93,7 @@ export default function ActionBar({
         <Button
           variant="ghost"
           size="sm"
-          icon={<FiTrash2 />}
+          icon={<FiTrash2 aria-hidden="true" />}
           onClick={onClearAll}
         >
           Clear All
@@ -91,10 +103,11 @@ export default function ActionBar({
           ref={fileRef}
           type="file"
           accept=".json"
+          aria-label="Choose a JSON file containing cookies"
           onChange={handleFile}
           className="hidden"
         />
       </div>
-    </div>
+    </footer>
   );
 }

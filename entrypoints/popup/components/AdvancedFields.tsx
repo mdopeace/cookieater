@@ -61,7 +61,7 @@ export default function AdvancedFields({
           })
         }
       />
-      <div className="cookie-flags">
+      <div className="cookie-flags" role="group" aria-label="Cookie security settings">
         <label className="cookie-checkbox">
           <input
             type="checkbox"
