@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import cookieEaterLogoUrl from "../../assets/store-icon.png";
+import cookieEaterLogoUrl from "../../assets/icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
 import DomainBar from "./components/DomainBar";
@@ -221,7 +221,11 @@ export default function App() {
           className={`grid transition-all duration-300 ease-in-out ${error ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden min-h-0">
-            <div className="feedback feedback-error" role="alert" aria-live="assertive">
+            <div
+              className="feedback feedback-error"
+              role="alert"
+              aria-live="assertive"
+            >
               {error}
             </div>
           </div>
@@ -231,7 +235,11 @@ export default function App() {
           className={`grid transition-all duration-300 ease-in-out ${saveError ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden min-h-0">
-            <div className="feedback feedback-error whitespace-pre-wrap" role="alert" aria-live="assertive">
+            <div
+              className="feedback feedback-error whitespace-pre-wrap"
+              role="alert"
+              aria-live="assertive"
+            >
               {saveError}
             </div>
           </div>
@@ -289,7 +297,6 @@ export default function App() {
             ? `${filtered.length} matching cookie${filtered.length === 1 ? "" : "s"}`
             : ""}
         </span>
-
       </main>
       <ActionBar
         onAdd={handleAdd}

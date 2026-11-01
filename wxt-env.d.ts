@@ -5,4 +5,9 @@ declare module "*.png" {
   export default imageUrl;
 }
 
+declare module "*.png?no-inline" {
+  const imageUrl: string;
+  export default imageUrl;
+}
+
 declare module "*.css";
