@@ -5,8 +5,8 @@ export default defineConfig({
   srcDir: ".",
   modules: ["@wxt-dev/auto-icons"],
   manifest: {
-    name: "cookieater",
-    description: "A friendly cookie editor",
+    name: "Cookieater: Cookie Manager",
+    description: "Inspect, search, and manage cookies for the website you’re viewing.",
     permissions: ["cookies"],
     host_permissions: ["<all_urls>"],
   },

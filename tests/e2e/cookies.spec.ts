@@ -35,7 +35,7 @@ test.beforeEach(async () => {
         const name = candidate.shadowRoot
           ?.querySelector<HTMLElement>("#name")
           ?.innerText.trim();
-        return name?.toLowerCase() === "cookieater";
+        return name?.toLowerCase().startsWith("cookieater");
       });
       return item?.getAttribute("id") ?? null;
     },
