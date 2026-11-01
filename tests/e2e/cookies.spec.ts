@@ -24,9 +24,8 @@ test.beforeEach(async () => {
     ],
   });
 
-  // Read the extension ID from Chrome's own extension manager. This extension
-  // intentionally has no background worker, so there is no service-worker URL
-  // from which to obtain the ID.
+  // Read the extension ID from Chrome's manager without depending on the
+  // background service worker's lifecycle.
   const manager = await context.newPage();
   await manager.goto("chrome://extensions/");
   await manager.locator("extensions-item").first().waitFor();
@@ -76,7 +75,7 @@ test("Save All persists edits to multiple real browser cookies", async () => {
   await setDomain();
   await expect(popup.locator(".cookie-card")).toHaveCount(2);
 
-  const values = popup.getByRole("textbox", { name: "Cookie value" });
+  const values = popup.getByRole("textbox", { name: / value$/ });
   await values.nth(0).fill("updated-first");
   await values.nth(1).fill("updated-second");
   await popup.getByRole("button", { name: "Save All" }).click();
@@ -93,7 +92,7 @@ test("Save All continues saving other cookies when one cookie is invalid", async
   await setDomain();
   await expect(popup.locator(".cookie-card")).toHaveCount(2);
 
-  const values = popup.getByRole("textbox", { name: "Cookie value" });
+  const values = popup.getByRole("textbox", { name: / value$/ });
   await popup.getByRole("button", { name: "Expand first details" }).click();
   await popup.locator(".cookie-card").nth(0).locator(".advanced-fields input").first().fill("[");
   await values.nth(1).fill("saved-despite-error");
@@ -128,7 +127,7 @@ test("SameSite=None is persisted as Secure and the cookie can then be deleted", 
 test("switching domains asks before discarding unsaved edits", async () => {
   await seedCookies(["keep_me"]);
   await setDomain();
-  await popup.getByRole("textbox", { name: "Cookie value" }).fill("unsaved-value");
+  await popup.getByRole("textbox", { name: / value$/ }).fill("unsaved-value");
 
   let confirmMessage = "";
   popup.once("dialog", async (dialog) => {
@@ -142,7 +141,7 @@ test("switching domains asks before discarding unsaved edits", async () => {
 
   expect(confirmMessage).toContain("Discard unsaved");
   await expect(popup.locator(".domain-display")).toHaveText("example.com");
-  await expect(popup.getByRole("textbox", { name: "Cookie value" })).toHaveValue(
+  await expect(popup.getByRole("textbox", { name: / value$/ })).toHaveValue(
     "unsaved-value",
   );
 });
@@ -150,7 +149,7 @@ test("switching domains asks before discarding unsaved edits", async () => {
 test("refresh asks before discarding unsaved edits", async () => {
   await seedCookies(["keep_me"]);
   await setDomain();
-  await popup.getByRole("textbox", { name: "Cookie value" }).fill("unsaved-value");
+  await popup.getByRole("textbox", { name: / value$/ }).fill("unsaved-value");
 
   let confirmMessage = "";
   popup.once("dialog", async (dialog) => {
@@ -160,7 +159,7 @@ test("refresh asks before discarding unsaved edits", async () => {
   await popup.locator(".domain-bar > button").click();
 
   expect(confirmMessage).toContain("Discard unsaved");
-  await expect(popup.getByRole("textbox", { name: "Cookie value" })).toHaveValue(
+  await expect(popup.getByRole("textbox", { name: / value$/ })).toHaveValue(
     "unsaved-value",
   );
 });
