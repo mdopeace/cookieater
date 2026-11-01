@@ -38,8 +38,7 @@ const cookieUrl = (cookie: CookieItem, secure: boolean) =>
   `${secure ? "https" : "http"}://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
 
 async function persistCookie(cookie: CookieItem) {
-  const secure =
-    cookie.sameSite === "no_restriction" ? true : cookie.secure;
+  const secure = cookie.sameSite === "no_restriction" ? true : cookie.secure;
   await browser.cookies.set({
     url: cookieUrl(cookie, secure),
     name: cookie.name,
@@ -59,7 +58,10 @@ async function removeCookieFromBrowser(cookie: CookieItem) {
   const removed = await browser.cookies.remove({
     name: cookie.name,
     // SameSite=None cookies are always Secure, including after persistence.
-    url: cookieUrl(cookie, cookie.sameSite === "no_restriction" || cookie.secure),
+    url: cookieUrl(
+      cookie,
+      cookie.sameSite === "no_restriction" || cookie.secure,
+    ),
     partitionKey: cookie.partitionKey,
   });
   if (!removed) throw new Error(`Cookie "${cookie.name}" was not found.`);
@@ -77,12 +79,7 @@ export function useCookies(domain: string) {
     setLoading(true);
     setError(null);
     try {
-      // A domain-scoped cookie (for example `.stagedev.in`) applies to
-      // `t0.platform.stagedev.in`, but `getAll({ domain: hostname })` only
-      // searches the requested domain and its subdomains. Query by URL so the
-      // browser returns every cookie applicable to this host, including its
-      // parent-domain cookies. Check both schemes because secure cookies are
-      // only returned for HTTPS while non-secure cookies may be HTTP-only.
+      // Query both schemes to include parent-domain and secure cookies.
       const hostname = domain.trim().replace(/^\.+/, "");
       const [httpCookies, httpsCookies] = await Promise.all([
         browser.cookies.getAll({ url: `http://${hostname}/` }),
@@ -231,7 +228,9 @@ export function useCookies(domain: string) {
       }
     }
     if (failed) {
-      setError(`${failed} cookie${failed === 1 ? "" : "s"} could not be cleared.`);
+      setError(
+        `${failed} cookie${failed === 1 ? "" : "s"} could not be cleared.`,
+      );
       setCookies((prev) => prev.filter((item) => failedIds.has(item.localId)));
     } else {
       setCookies([]);
