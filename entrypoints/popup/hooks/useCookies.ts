@@ -77,7 +77,25 @@ export function useCookies(domain: string) {
     setLoading(true);
     setError(null);
     try {
-      const raw = await browser.cookies.getAll({ domain });
+      // A domain-scoped cookie (for example `.stagedev.in`) applies to
+      // `t0.platform.stagedev.in`, but `getAll({ domain: hostname })` only
+      // searches the requested domain and its subdomains. Query by URL so the
+      // browser returns every cookie applicable to this host, including its
+      // parent-domain cookies. Check both schemes because secure cookies are
+      // only returned for HTTPS while non-secure cookies may be HTTP-only.
+      const hostname = domain.trim().replace(/^\.+/, "");
+      const [httpCookies, httpsCookies] = await Promise.all([
+        browser.cookies.getAll({ url: `http://${hostname}/` }),
+        browser.cookies.getAll({ url: `https://${hostname}/` }),
+      ]);
+      const raw = Array.from(
+        new Map(
+          [...httpCookies, ...httpsCookies].map((cookie) => [
+            `${cookie.storeId}:${cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : ""}:${cookie.domain}:${cookie.path}:${cookie.name}`,
+            cookie,
+          ]),
+        ).values(),
+      );
       setCookies(raw.map(toCookieItem));
       setDirtyIds(new Set());
       setNewIds(new Set());
