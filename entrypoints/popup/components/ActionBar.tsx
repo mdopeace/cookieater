@@ -59,51 +59,56 @@ export default function ActionBar({
         </p>
       )}
       <div className="action-bar-buttons">
-        <Button
-          id="add-cookie-button"
-          variant="secondary"
-          size="sm"
-          icon={<FiPlus aria-hidden="true" />}
-          onClick={onAdd}
-          disabled={disabled}
-        >
-          Add Cookie
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onSaveAll}
-          disabled={!canSaveAll || disabled}
-        >
-          Save All
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<FiDownload aria-hidden="true" />}
-          onClick={onExport}
-          disabled={disabled}
-        >
-          Export
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<FiUpload aria-hidden="true" />}
-          onClick={() => fileRef.current?.click()}
-          disabled={disabled}
-        >
-          Import
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<FiTrash2 aria-hidden="true" />}
-          onClick={onClearAll}
-          disabled={disabled}
-        >
-          Clear All
-        </Button>
+        <div className="action-bar-group">
+          <Button
+            id="add-cookie-button"
+            variant="secondary"
+            size="sm"
+            icon={<FiPlus aria-hidden="true" />}
+            onClick={onAdd}
+            disabled={disabled}
+          >
+            Add Cookie
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<FiDownload aria-hidden="true" />}
+            onClick={onExport}
+            disabled={disabled}
+          >
+            Export
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<FiUpload aria-hidden="true" />}
+            onClick={() => fileRef.current?.click()}
+            disabled={disabled}
+          >
+            Import
+          </Button>
+        </div>
+        <div className="action-bar-group action-bar-group-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="button-clear-all"
+            icon={<FiTrash2 aria-hidden="true" />}
+            onClick={onClearAll}
+            disabled={disabled}
+          >
+            Clear All
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onSaveAll}
+            disabled={!canSaveAll || disabled}
+          >
+            Save All
+          </Button>
+        </div>
 
         <input
           ref={fileRef}

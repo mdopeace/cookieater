@@ -225,7 +225,7 @@ export default function App() {
         />
       </div>
       <span className="visually-hidden" role="status" aria-live="polite">
-        {saving ? "Saving cookie changes" : ""}
+        {saving ? "Updating cookies" : ""}
       </span>
       <main className="popup-main flex min-h-0 flex-1 flex-col">
         <SearchBar

@@ -279,6 +279,13 @@ a:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.action-bar-group {
+  display: flex;
+  align-items: center;
   gap: 7px;
 }
 
@@ -363,6 +370,11 @@ a:focus-visible {
 .button-ghost:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--text-primary);
+}
+
+.button-clear-all:hover:not(:disabled) {
+  background: var(--danger-surface);
+  color: var(--danger);
 }
 
 .field-label {
