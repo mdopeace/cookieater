@@ -33,20 +33,32 @@ export default function App() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
+    const markPointerFocus = () => {
+      document.documentElement.dataset.focusModality = "pointer";
+    };
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.closest("input, textarea, select, [contenteditable='true']"));
+    const markKeyboardFocus = (event: KeyboardEvent) => {
+      if (
+        event.key === "Tab" ||
+        (event.key === "/" && !isTyping(event.target)) ||
+        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
+      ) {
+        document.documentElement.dataset.focusModality = "keyboard";
+      }
+    };
     const focusSearch = (event: KeyboardEvent) => {
       if (event.repeat) return;
 
-      const target = event.target;
-      const isTyping =
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest("input, textarea, select, [contenteditable='true']"));
+      const typing = isTyping(event.target);
       const isSlash =
         event.key === "/" &&
         !event.metaKey &&
         !event.ctrlKey &&
         !event.altKey &&
-        !isTyping;
+        !typing;
       const isCommandK =
         event.key.toLowerCase() === "k" &&
         (event.metaKey || event.ctrlKey) &&
@@ -60,7 +72,13 @@ export default function App() {
     };
 
     document.addEventListener("keydown", focusSearch);
-    return () => document.removeEventListener("keydown", focusSearch);
+    document.addEventListener("keydown", markKeyboardFocus);
+    document.addEventListener("pointerdown", markPointerFocus);
+    return () => {
+      document.removeEventListener("keydown", focusSearch);
+      document.removeEventListener("keydown", markKeyboardFocus);
+      document.removeEventListener("pointerdown", markPointerFocus);
+    };
   }, []);
 
   const filtered = useMemo(

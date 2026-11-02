@@ -52,6 +52,25 @@ test.afterEach(async () => {
   await context?.close();
 });
 
+test("input outlines distinguish pointer focus from keyboard focus", async () => {
+  const searchInput = popup.locator(".search-input");
+
+  await searchInput.click();
+  await expect(searchInput).toBeFocused();
+  await expect(popup.locator("html")).toHaveAttribute("data-focus-modality", "pointer");
+  await expect
+    .poll(() => searchInput.evaluate((input) => getComputedStyle(input).outlineStyle))
+    .toBe("none");
+
+  await popup.locator(".domain-bar > button").last().focus();
+  await popup.keyboard.press("Tab");
+  await expect(searchInput).toBeFocused();
+  await expect(popup.locator("html")).toHaveAttribute("data-focus-modality", "keyboard");
+  await expect
+    .poll(() => searchInput.evaluate((input) => getComputedStyle(input).outlineStyle))
+    .toBe("solid");
+});
+
 async function setDomain(domain = "example.com") {
   await popup.locator(".domain-display").click();
   const input = popup.locator(".domain-edit-layer input");

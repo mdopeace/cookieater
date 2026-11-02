@@ -57,6 +57,10 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+html[data-focus-modality="pointer"] input:focus-visible {
+  outline: none;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
