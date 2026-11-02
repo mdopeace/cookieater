@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { FiHeart } from "react-icons/fi";
 import cookieEaterLogoUrl from "../../assets/icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
@@ -205,6 +206,16 @@ export default function App() {
           <span className="popup-header-count" role="status" aria-live="polite">
             {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
           </span>
+          <a
+            className="support-link"
+            href="https://buymeacoffee.com/mdopeace"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Support Cookieater (opens in a new tab)"
+            title="Support Cookieater"
+          >
+            <FiHeart aria-hidden="true" />
+          </a>
         </header>
         <DomainBar
           domain={domain}

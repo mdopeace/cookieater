@@ -126,6 +126,9 @@ a:focus-visible {
 }
 
 .popup-header-count {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
   margin-left: auto;
   border: 1px solid var(--accent);
   border-radius: 3px;
@@ -134,6 +137,28 @@ a:focus-visible {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   padding: 4px 9px;
+}
+
+.support-link {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.support-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.support-link svg {
+  width: 16px;
+  height: 16px;
 }
 
 .domain-bar {
