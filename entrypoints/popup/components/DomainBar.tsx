@@ -8,12 +8,14 @@ interface DomainBarProps {
   domain: string;
   onDomainChange: (d: string) => void;
   onRefresh: () => void;
+  disabled?: boolean;
 }
 
 export default function DomainBar({
   domain,
   onDomainChange,
   onRefresh,
+  disabled = false,
 }: DomainBarProps) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(domain);
@@ -61,6 +63,7 @@ export default function DomainBar({
         >
           <button
             ref={domainButtonRef}
+            disabled={disabled}
             onClick={() => setEditing(true)}
             className="domain-display text-left transition-colors cursor-pointer"
             aria-label={`Edit domain${domain ? `, currently ${domain}` : ""}`}
@@ -72,11 +75,12 @@ export default function DomainBar({
         <div
           aria-hidden={!editing}
           inert={!editing}
-          className={`domain-edit-layer transition-all duration-200
+          className={`domain-edit-layer grid items-center transition-all duration-200
             ${editing ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         >
           <Input
             inputRef={domainInputRef}
+            disabled={disabled}
             aria-label="Website domain"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -99,6 +103,7 @@ export default function DomainBar({
       <Button
         variant="ghost"
         size="sm"
+        disabled={disabled}
         onClick={onRefresh}
         icon={<FiRotateCw aria-hidden="true" />}
         aria-label="Refresh cookies"

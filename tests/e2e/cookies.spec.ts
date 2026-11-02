@@ -7,6 +7,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const extensionPath = resolve(".output/chrome-mv3");
@@ -51,6 +52,25 @@ test.afterEach(async () => {
   await context?.close();
 });
 
+test("input outlines distinguish pointer focus from keyboard focus", async () => {
+  const searchInput = popup.locator(".search-input");
+
+  await searchInput.click();
+  await expect(searchInput).toBeFocused();
+  await expect(popup.locator("html")).toHaveAttribute("data-focus-modality", "pointer");
+  await expect
+    .poll(() => searchInput.evaluate((input) => getComputedStyle(input).outlineStyle))
+    .toBe("none");
+
+  await popup.locator(".domain-bar > button").last().focus();
+  await popup.keyboard.press("Tab");
+  await expect(searchInput).toBeFocused();
+  await expect(popup.locator("html")).toHaveAttribute("data-focus-modality", "keyboard");
+  await expect
+    .poll(() => searchInput.evaluate((input) => getComputedStyle(input).outlineStyle))
+    .toBe("solid");
+});
+
 async function setDomain(domain = "example.com") {
   await popup.locator(".domain-display").click();
   const input = popup.locator(".domain-edit-layer input");
@@ -69,6 +89,149 @@ async function seedCookies(names: string[]) {
     })),
   );
 }
+
+test("nested-path cookies are listed, exported, and cleared", async () => {
+  await context.addCookies([
+    {
+      name: "nested",
+      value: "value",
+      domain: "example.com",
+      path: "/account",
+    },
+  ]);
+  await setDomain();
+  await expect(popup.locator(".cookie-card")).toHaveCount(1);
+
+  const downloadPromise = popup.waitForEvent("download");
+  await popup.getByRole("button", { name: "Export" }).click();
+  const download = await downloadPromise;
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+  expect(JSON.parse(await readFile(filePath!, "utf8"))).toHaveLength(1);
+
+  popup.once("dialog", (dialog) => dialog.accept());
+  await popup.getByRole("button", { name: "Clear All" }).click();
+  await expect.poll(async () => context.cookies("https://example.com/account/")).toHaveLength(0);
+});
+
+test("clearing the selected domain clears its cookie list", async () => {
+  await seedCookies(["still_in_browser"]);
+  await setDomain();
+
+  await popup.locator(".domain-display").click();
+  const input = popup.locator(".domain-edit-layer input");
+  await input.fill("");
+  await input.press("Enter");
+
+  await expect(popup.locator(".domain-display")).toHaveText("No domain");
+  await expect(popup.locator(".popup-header-count")).toHaveText("0 cookies");
+  await expect(popup.getByText("No cookies found")).toBeVisible();
+  await expect.poll(async () => context.cookies("https://example.com/")).toHaveLength(1);
+});
+
+test("the latest domain load wins when domain changes overlap", async () => {
+  const staleCookies = Array.from({ length: 100 }, (_, index) => ({
+    name: `stale_${index}`,
+    value: "value",
+    url: "https://stale.example.com/",
+  }));
+  await context.addCookies(staleCookies);
+  await seedCookies(["current"]);
+
+  await popup.locator(".domain-display").click();
+  const input = popup.locator(".domain-edit-layer input");
+  await input.fill("stale.example.com");
+  await input.press("Enter");
+  await popup.locator(".domain-display").click();
+  await input.fill("example.com");
+  await input.press("Enter");
+
+  await expect(popup.locator(".domain-display")).toHaveText("example.com");
+  await expect(popup.locator(".cookie-card")).toHaveCount(1);
+  await expect(popup.locator(".cookie-fields input").first()).toHaveValue("current");
+  await popup.waitForTimeout(500);
+  await expect(popup.locator(".cookie-fields input").first()).toHaveValue("current");
+});
+
+test("parent-domain cookies with nested paths appear on subdomains", async () => {
+  await context.addCookies([
+    {
+      name: "parent_nested",
+      value: "value",
+      domain: ".example.com",
+      path: "/account",
+    },
+  ]);
+  await setDomain("shop.example.com");
+  await expect(popup.locator(".cookie-card")).toHaveCount(1);
+  await expect(popup.locator(".cookie-fields input").first()).toHaveValue("parent_nested");
+});
+
+test("saving identity changes replaces the original cookie", async () => {
+  await seedCookies(["before"]);
+  await setDomain();
+  await popup.getByRole("button", { name: "Expand before details" }).click();
+  await popup.locator(".cookie-fields input").nth(0).fill("after");
+  const advanced = popup.locator(".advanced-fields input");
+  await advanced.nth(0).fill("sub.example.com");
+  await advanced.nth(1).fill("/account");
+  await popup.getByRole("button", { name: "Save All" }).click();
+
+  await expect.poll(async () => context.cookies("https://sub.example.com/account/")).toEqual(
+    expect.arrayContaining([expect.objectContaining({ name: "after", path: "/account" })]),
+  );
+  await expect.poll(async () => context.cookies("https://example.com/")).toHaveLength(0);
+});
+
+test("failed identity changes restore the original cookie", async () => {
+  await seedCookies(["before_restore"]);
+  await setDomain();
+  await popup.getByRole("button", { name: "Expand before_restore details" }).click();
+  await popup.locator(".advanced-fields input").nth(0).fill("[");
+  await popup.getByRole("button", { name: "Save All" }).click();
+
+  await expect(popup.locator(".feedback-error").filter({ hasText: "could not be saved" })).toBeVisible();
+  await expect.poll(async () => context.cookies("https://example.com/")).toEqual(
+    expect.arrayContaining([expect.objectContaining({ name: "before_restore" })]),
+  );
+  await expect.poll(async () =>
+    (await context.cookies("https://sub.example.com/")).map(({ name }) => name),
+  ).toEqual(["before_restore"]);
+});
+
+test("deleting a renamed unsaved cookie removes its browser original", async () => {
+  await seedCookies(["before_delete"]);
+  await setDomain();
+  await popup.locator(".cookie-fields input").nth(0).fill("after_delete");
+  await popup.getByRole("button", { name: "Delete after_delete" }).click();
+
+  await expect.poll(async () => context.cookies("https://example.com/")).toHaveLength(0);
+  await expect(popup.getByText("No cookies found")).toBeVisible();
+});
+
+test("Clear All removes original cookies with unsaved identity edits", async () => {
+  await seedCookies(["before_clear"]);
+  await setDomain();
+  await popup.locator(".cookie-fields input").nth(0).fill("after_clear");
+
+  popup.once("dialog", (dialog) => dialog.accept());
+  await popup.getByRole("button", { name: "Clear All" }).click();
+  await expect.poll(async () => context.cookies("https://example.com/")).toHaveLength(0);
+});
+
+test("cookie fields stay disabled while Save All is in progress", async () => {
+  const names = Array.from({ length: 30 }, (_, index) => `save_${index}`);
+  await seedCookies(names);
+  await setDomain();
+  const valueInputs = popup.locator(".cookie-fields > div:nth-child(2) input");
+  for (let index = 0; index < names.length; index++) {
+    await valueInputs.nth(index).fill(`updated_${index}`);
+  }
+
+  await popup.getByRole("button", { name: "Save All" }).click();
+  await expect(valueInputs.first()).toBeDisabled();
+  await expect(valueInputs.first()).toBeEnabled({ timeout: 10_000 });
+});
 
 test("Save All persists edits to multiple real browser cookies", async () => {
   await seedCookies(["first", "second"]);

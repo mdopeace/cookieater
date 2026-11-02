@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { FiHeart } from "react-icons/fi";
 import cookieEaterLogoUrl from "../../assets/icon.png";
 import type { CookieItem } from "./types";
 import { useCookies } from "./hooks/useCookies";
@@ -32,20 +33,32 @@ export default function App() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
+    const markPointerFocus = () => {
+      document.documentElement.dataset.focusModality = "pointer";
+    };
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.closest("input, textarea, select, [contenteditable='true']"));
+    const markKeyboardFocus = (event: KeyboardEvent) => {
+      if (
+        event.key === "Tab" ||
+        (event.key === "/" && !isTyping(event.target)) ||
+        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
+      ) {
+        document.documentElement.dataset.focusModality = "keyboard";
+      }
+    };
     const focusSearch = (event: KeyboardEvent) => {
       if (event.repeat) return;
 
-      const target = event.target;
-      const isTyping =
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest("input, textarea, select, [contenteditable='true']"));
+      const typing = isTyping(event.target);
       const isSlash =
         event.key === "/" &&
         !event.metaKey &&
         !event.ctrlKey &&
         !event.altKey &&
-        !isTyping;
+        !typing;
       const isCommandK =
         event.key.toLowerCase() === "k" &&
         (event.metaKey || event.ctrlKey) &&
@@ -59,7 +72,13 @@ export default function App() {
     };
 
     document.addEventListener("keydown", focusSearch);
-    return () => document.removeEventListener("keydown", focusSearch);
+    document.addEventListener("keydown", markKeyboardFocus);
+    document.addEventListener("pointerdown", markPointerFocus);
+    return () => {
+      document.removeEventListener("keydown", focusSearch);
+      document.removeEventListener("keydown", markKeyboardFocus);
+      document.removeEventListener("pointerdown", markPointerFocus);
+    };
   }, []);
 
   const filtered = useMemo(
@@ -183,14 +202,19 @@ export default function App() {
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!confirm("Clear all cookies for this domain?")) return;
-    clearAll();
+    setSaving(true);
+    try {
+      await clearAll();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="popup-shell flex flex-col h-full min-h-100">
-      <div className="popup-sticky-header">
+      <div className="popup-header-group">
         <header className="popup-header">
           <img className="brand-logo" src={cookieEaterLogoUrl} alt="" />
           <div className="brand-lockup">
@@ -200,15 +224,26 @@ export default function App() {
           <span className="popup-header-count" role="status" aria-live="polite">
             {cookies.length} {cookies.length === 1 ? "cookie" : "cookies"}
           </span>
+          <a
+            className="support-link"
+            href="https://buymeacoffee.com/mdopeace"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Support Cookieater (opens in a new tab)"
+            title="Support Cookieater"
+          >
+            <FiHeart aria-hidden="true" />
+          </a>
         </header>
         <DomainBar
           domain={domain}
           onDomainChange={handleDomainChange}
           onRefresh={handleRefresh}
+          disabled={saving}
         />
       </div>
       <span className="visually-hidden" role="status" aria-live="polite">
-        {saving ? "Saving cookie changes" : ""}
+        {saving ? "Updating cookies" : ""}
       </span>
       <main className="popup-main flex min-h-0 flex-1 flex-col">
         <SearchBar
@@ -271,7 +306,7 @@ export default function App() {
           </div>
         ) : (
           <div
-            className="cookie-list flex-1 overflow-y-auto"
+            className="cookie-list"
             role="list"
             aria-label="Cookies"
           >
@@ -305,6 +340,7 @@ export default function App() {
         onExport={handleExport}
         onImport={handleImport}
         onClearAll={handleClearAll}
+        disabled={saving || loading}
       />
     </div>
   );

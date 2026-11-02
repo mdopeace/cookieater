@@ -9,6 +9,15 @@ export default defineConfig({
     description: "Inspect, search, and manage cookies for the website you’re viewing.",
     permissions: ["cookies"],
     host_permissions: ["<all_urls>"],
+    commands: {
+      _execute_action: {
+        suggested_key: {
+          default: "Ctrl+Shift+Y",
+          mac: "Command+Shift+Y",
+        },
+        description: "Open Cookieater",
+      },
+    },
   },
   vite: () => ({
     plugins: [tailwindcss()],

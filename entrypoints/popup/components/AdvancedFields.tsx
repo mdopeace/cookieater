@@ -5,6 +5,7 @@ import type { CookieItem } from "../types";
 interface AdvancedFieldsProps {
   cookie: CookieItem;
   onChange: (id: string, updates: Partial<CookieItem>) => void;
+  disabled?: boolean;
 }
 
 // datetime-local has no timezone; format/parse in local time, not UTC.
@@ -17,6 +18,7 @@ const toLocalInputValue = (seconds: number) => {
 export default function AdvancedFields({
   cookie,
   onChange,
+  disabled = false,
 }: AdvancedFieldsProps) {
   const set = (updates: Partial<CookieItem>) =>
     onChange(cookie.localId, updates);
@@ -27,16 +29,19 @@ export default function AdvancedFields({
     <div className="advanced-fields">
       <Input
         label="Domain"
+        disabled={disabled}
         value={cookie.domain}
         onChange={(e) => set({ domain: e.target.value })}
       />
       <Input
         label="Path"
+        disabled={disabled}
         value={cookie.path}
         onChange={(e) => set({ path: e.target.value })}
       />
       <Input
         label="Expires"
+        disabled={disabled}
         type="datetime-local"
         value={expiresValue}
         onChange={(e) => {
@@ -48,6 +53,7 @@ export default function AdvancedFields({
       />
       <Select
         label="SameSite"
+        disabled={disabled}
         options={[
           { value: "lax", label: "Lax" },
           { value: "strict", label: "Strict" },
@@ -65,6 +71,7 @@ export default function AdvancedFields({
         <label className="cookie-checkbox">
           <input
             type="checkbox"
+            disabled={disabled}
             checked={cookie.secure}
             onChange={(e) => set({ secure: e.target.checked })}
           />
@@ -73,6 +80,7 @@ export default function AdvancedFields({
         <label className="cookie-checkbox">
           <input
             type="checkbox"
+            disabled={disabled}
             checked={cookie.httpOnly}
             onChange={(e) => set({ httpOnly: e.target.checked })}
           />
