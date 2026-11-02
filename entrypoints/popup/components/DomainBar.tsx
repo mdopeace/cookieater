@@ -75,7 +75,7 @@ export default function DomainBar({
         <div
           aria-hidden={!editing}
           inert={!editing}
-          className={`domain-edit-layer transition-all duration-200
+          className={`domain-edit-layer grid items-center transition-all duration-200
             ${editing ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         >
           <Input
