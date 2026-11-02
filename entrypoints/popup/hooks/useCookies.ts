@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { browser } from "wxt/browser";
 import type { CookieItem } from "../types";
 
@@ -55,7 +55,7 @@ async function persistCookie(cookie: CookieItem) {
 }
 
 async function removeCookieFromBrowser(cookie: CookieItem) {
-  const removed = await browser.cookies.remove({
+  return browser.cookies.remove({
     name: cookie.name,
     // SameSite=None cookies are always Secure, including after persistence.
     url: cookieUrl(
@@ -64,8 +64,21 @@ async function removeCookieFromBrowser(cookie: CookieItem) {
     ),
     partitionKey: cookie.partitionKey,
   });
-  if (!removed) throw new Error(`Cookie "${cookie.name}" was not found.`);
 }
+
+const matchesDomain = (
+  cookie: Pick<CookieItem, "domain" | "hostOnly">,
+  hostname: string,
+) => {
+  const cookieDomain = cookie.domain.replace(/^\./, "").toLowerCase();
+  const host = hostname.toLowerCase();
+  return cookie.hostOnly
+    ? host === cookieDomain
+    : host === cookieDomain || host.endsWith(`.${cookieDomain}`);
+};
+
+const hasSameIdentity = (a: CookieItem, b: CookieItem) =>
+  a.name === b.name && a.domain === b.domain && a.path === b.path;
 
 export function useCookies(domain: string) {
   const [cookies, setCookies] = useState<CookieItem[]>([]);
@@ -73,33 +86,50 @@ export function useCookies(domain: string) {
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const originals = useRef(new Map<string, CookieItem>());
+  const loadId = useRef(0);
 
   const load = useCallback(async () => {
-    if (!domain) return;
+    const currentLoad = ++loadId.current;
+    const hostname = domain.trim().replace(/^\.+/, "").replace(/\.$/, "");
+    if (!hostname) {
+      originals.current.clear();
+      setCookies([]);
+      setDirtyIds(new Set());
+      setNewIds(new Set());
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setCookies([]);
+    setDirtyIds(new Set());
+    setNewIds(new Set());
+    originals.current.clear();
     try {
-      // Query both schemes to include parent-domain and secure cookies.
-      const hostname = domain.trim().replace(/^\.+/, "");
-      const [httpCookies, httpsCookies] = await Promise.all([
-        browser.cookies.getAll({ url: `http://${hostname}/` }),
-        browser.cookies.getAll({ url: `https://${hostname}/` }),
-      ]);
+      const allCookies = await browser.cookies.getAll({});
+      if (currentLoad !== loadId.current) return;
+
       const raw = Array.from(
         new Map(
-          [...httpCookies, ...httpsCookies].map((cookie) => [
-            `${cookie.storeId}:${cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : ""}:${cookie.domain}:${cookie.path}:${cookie.name}`,
-            cookie,
-          ]),
+          allCookies
+            .filter((cookie) => matchesDomain(cookie, hostname))
+            .map((cookie) => [
+              `${cookie.storeId}:${cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : ""}:${cookie.domain}:${cookie.path}:${cookie.name}`,
+              cookie,
+            ]),
         ).values(),
-      );
-      setCookies(raw.map(toCookieItem));
+      ).map(toCookieItem);
+      originals.current = new Map(raw.map((cookie) => [cookie.localId, cookie]));
+      setCookies(raw);
       setDirtyIds(new Set());
       setNewIds(new Set());
     } catch (e) {
-      setError((e as Error).message);
+      if (currentLoad === loadId.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (currentLoad === loadId.current) setLoading(false);
     }
   }, [domain]);
 
@@ -130,6 +160,7 @@ export function useCookies(domain: string) {
 
       if (newIds.has(localId)) {
         setCookies((prev) => prev.filter((c) => c.localId !== localId));
+        originals.current.delete(localId);
         setNewIds((prev) => {
           const s = new Set(prev);
           s.delete(localId);
@@ -144,8 +175,9 @@ export function useCookies(domain: string) {
       }
 
       try {
-        await removeCookieFromBrowser(cookie);
+        await removeCookieFromBrowser(originals.current.get(localId) ?? cookie);
         setCookies((prev) => prev.filter((c) => c.localId !== localId));
+        originals.current.delete(localId);
         setDirtyIds((prev) => {
           const s = new Set(prev);
           s.delete(localId);
@@ -165,10 +197,32 @@ export function useCookies(domain: string) {
       const cookie = cookies.find((c) => c.localId === localId);
       if (!cookie) return;
 
-      await persistCookie(cookie);
+      const original = originals.current.get(localId);
+      if (original && !hasSameIdentity(original, cookie)) {
+        await removeCookieFromBrowser(original);
+        try {
+          await persistCookie(cookie);
+        } catch (error) {
+          try {
+            await persistCookie(original);
+          } catch (restoreError) {
+            throw new Error(
+              `${(error as Error).message} The original cookie could not be restored: ${(restoreError as Error).message}`,
+            );
+          }
+          throw error;
+        }
+      } else {
+        await persistCookie(cookie);
+      }
 
       const effectiveSecure =
         cookie.sameSite === "no_restriction" ? true : cookie.secure;
+      originals.current.set(localId, {
+        ...cookie,
+        secure: effectiveSecure,
+        session: cookie.expires < 0,
+      });
 
       setDirtyIds((prev) => {
         const s = new Set(prev);
@@ -221,7 +275,7 @@ export function useCookies(domain: string) {
     for (const c of cookies) {
       if (newIds.has(c.localId)) continue;
       try {
-        await removeCookieFromBrowser(c);
+        await removeCookieFromBrowser(originals.current.get(c.localId) ?? c);
       } catch {
         failed++;
         failedIds.add(c.localId);
@@ -235,6 +289,11 @@ export function useCookies(domain: string) {
     } else {
       setCookies([]);
     }
+    originals.current = new Map(
+      cookies
+        .filter((item) => failedIds.has(item.localId))
+        .map((item) => [item.localId, originals.current.get(item.localId) ?? item]),
+    );
     setDirtyIds(new Set());
     setNewIds(new Set());
     return failed;

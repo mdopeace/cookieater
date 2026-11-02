@@ -56,6 +56,7 @@ export default function CookieCard({
       <Card pending={isDirty} className={isNew ? "cookie-card-new" : ""}>
         <div className="cookie-main-row">
           <button
+            disabled={saving}
             onClick={() => setExpanded(!expanded)}
             className="cookie-expand"
             aria-label={`${expanded ? "Collapse" : "Expand"} ${cookie.name || "cookie"} details`}
@@ -72,12 +73,14 @@ export default function CookieCard({
           <div className="cookie-fields">
             <Input
               id={`cookie-name-${cookie.localId}`}
+              disabled={saving}
               value={cookie.name}
               onChange={(e) => onUpdate(cookie.localId, { name: e.target.value })}
               placeholder="Name"
               aria-label={`${cookie.name || "New cookie"} name`}
             />
             <Input
+              disabled={saving}
               value={cookie.value}
               onChange={(e) => onUpdate(cookie.localId, { value: e.target.value })}
               placeholder="Value"
@@ -95,6 +98,7 @@ export default function CookieCard({
               <FiSave size={15} aria-hidden="true" />
             </button>
             <button
+              disabled={saving}
               onClick={handleRemove}
               className="cookie-icon-action cookie-delete"
               aria-label={`Delete ${cookie.name || "cookie"}`}
@@ -113,7 +117,11 @@ export default function CookieCard({
           className={`grid transition-all duration-300 ease-in-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden min-h-0">
-            <AdvancedFields cookie={cookie} onChange={onUpdate} />
+            <AdvancedFields
+              cookie={cookie}
+              onChange={onUpdate}
+              disabled={saving}
+            />
           </div>
         </div>
       </Card>

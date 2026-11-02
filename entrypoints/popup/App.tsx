@@ -183,14 +183,19 @@ export default function App() {
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!confirm("Clear all cookies for this domain?")) return;
-    clearAll();
+    setSaving(true);
+    try {
+      await clearAll();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="popup-shell flex flex-col h-full min-h-100">
-      <div className="popup-sticky-header">
+      <div className="popup-header-group">
         <header className="popup-header">
           <img className="brand-logo" src={cookieEaterLogoUrl} alt="" />
           <div className="brand-lockup">
@@ -205,6 +210,7 @@ export default function App() {
           domain={domain}
           onDomainChange={handleDomainChange}
           onRefresh={handleRefresh}
+          disabled={saving}
         />
       </div>
       <span className="visually-hidden" role="status" aria-live="polite">
@@ -271,7 +277,7 @@ export default function App() {
           </div>
         ) : (
           <div
-            className="cookie-list flex-1 overflow-y-auto"
+            className="cookie-list"
             role="list"
             aria-label="Cookies"
           >
@@ -305,6 +311,7 @@ export default function App() {
         onExport={handleExport}
         onImport={handleImport}
         onClearAll={handleClearAll}
+        disabled={saving || loading}
       />
     </div>
   );
