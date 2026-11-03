@@ -7,18 +7,24 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const extensionPath = resolve(".output/chrome-mv3");
+const headless = process.env.PLAYWRIGHT_HEADLESS !== "false";
 
 let context: BrowserContext;
 let popup: Page;
+let regularPopupForTest: Page;
+let extensionId: string;
+let profileDir: string;
 
 test.beforeEach(async () => {
-  context = await chromium.launchPersistentContext("", {
+  profileDir = await mkdtemp(join(tmpdir(), "cookieater-e2e-"));
+  context = await chromium.launchPersistentContext(profileDir, {
     channel: "chromium",
-    headless: true,
+    headless,
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
@@ -30,7 +36,7 @@ test.beforeEach(async () => {
   const manager = await context.newPage();
   await manager.goto("chrome://extensions/");
   await manager.locator("extensions-item").first().waitFor();
-  const extensionId = await manager.locator("extensions-item").evaluateAll(
+  extensionId = (await manager.locator("extensions-item").evaluateAll(
     (items) => {
       const item = items.find((candidate) => {
         const name = candidate.shadowRoot
@@ -40,16 +46,18 @@ test.beforeEach(async () => {
       });
       return item?.getAttribute("id") ?? null;
     },
-  );
+  ))!;
   expect(extensionId, "Cookieater should be loaded in Chromium").toBeTruthy();
 
   popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   await popup.locator(".domain-display").waitFor();
+  regularPopupForTest = popup;
 });
 
 test.afterEach(async () => {
   await context?.close();
+  if (profileDir) await rm(profileDir, { recursive: true, force: true });
 });
 
 test("input outlines distinguish pointer focus from keyboard focus", async () => {
@@ -90,6 +98,161 @@ async function seedCookies(names: string[]) {
   );
 }
 
+async function openIncognitoPopup() {
+  const settings = await context.newPage();
+  await settings.goto(`chrome://extensions/?id=${extensionId}`);
+  const toggle = settings.locator("#allow-incognito");
+  await toggle.waitFor();
+  if (!(await toggle.getAttribute("checked"))) await toggle.click();
+  await settings.close();
+
+  // Chromium applies the extension's incognito access setting after restart.
+  await context.close();
+  context = await chromium.launchPersistentContext(profileDir, {
+    channel: "chromium",
+    headless,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+  regularPopupForTest = await context.newPage();
+  await regularPopupForTest.goto(`chrome-extension://${extensionId}/popup.html`);
+  await regularPopupForTest.locator(".domain-display").waitFor();
+
+  const pagePromise = context.waitForEvent("page");
+  await regularPopupForTest.evaluate((id) => {
+    return new Promise<void>((resolve, reject) => {
+      (globalThis as any).chrome.windows.create(
+        { url: `chrome-extension://${id}/popup.html`, incognito: true, focused: true },
+        (window: unknown) => {
+          const error = (globalThis as any).chrome.runtime.lastError;
+          if (error) reject(new Error(error.message));
+          else if (!window) reject(new Error("Incognito window was not created"));
+          else resolve();
+        },
+      );
+    });
+  }, extensionId);
+  const incognitoPopup = await pagePromise;
+  await incognitoPopup.locator(".domain-display").waitFor({ timeout: 3_000 });
+  popup = incognitoPopup;
+  return incognitoPopup;
+}
+
+async function addCookieToStore(
+  targetPage: Page,
+  storeId: string,
+  name: string,
+  value: string,
+) {
+  await targetPage.evaluate(
+    ({ storeId, name, value }) =>
+      (globalThis as any).chrome.cookies.set({
+        url: "https://example.com/",
+        name,
+        value,
+        sameSite: "lax",
+        storeId,
+      }),
+    { storeId, name, value },
+  );
+}
+
+test("cookie management stays isolated between regular and incognito stores", async () => {
+  await seedCookies(["shared_identity"]);
+  let incognitoPopup: Page;
+  try {
+    incognitoPopup = await openIncognitoPopup();
+  } catch (error) {
+    if ((error as Error).message.includes("Incognito window was not created")) {
+      test.skip(true, "Chromium did not create an Incognito window; run headed with PLAYWRIGHT_HEADLESS=false to exercise this case.");
+      return;
+    }
+    throw error;
+  }
+  const incognitoTab = await incognitoPopup.evaluate(async () => {
+    const tabs = await (globalThis as any).chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    return { id: tabs[0]?.id as number | undefined, incognito: tabs[0]?.incognito as boolean | undefined };
+  });
+  expect(incognitoTab.id).toBeDefined();
+  expect(incognitoTab.incognito).toBe(true);
+  const incognitoStores = await incognitoPopup.evaluate(() =>
+    (globalThis as any).chrome.cookies.getAllCookieStores(),
+  );
+  const incognitoStore = incognitoStores.find((store: { tabIds: number[] }) =>
+    store.tabIds.includes(incognitoTab.id!),
+  );
+  expect(incognitoStore, "Incognito tab should have its own cookie store").toBeTruthy();
+
+  const regularTab = await regularPopupForTest.evaluate(async () => {
+    const tabs = await (globalThis as any).chrome.tabs.query({ active: true, currentWindow: true });
+    return { id: tabs[0]?.id as number | undefined, incognito: tabs[0]?.incognito as boolean | undefined };
+  });
+  expect(regularTab.incognito).toBe(false);
+  const regularStores = await regularPopupForTest.evaluate(() =>
+    (globalThis as any).chrome.cookies.getAllCookieStores(),
+  );
+  const regularStore = regularStores.find((store: { tabIds: number[] }) =>
+    store.tabIds.includes(regularTab.id!),
+  );
+  expect(regularStore, "Regular tab should have its profile cookie store").toBeTruthy();
+
+  await addCookieToStore(incognitoPopup, incognitoStore.id, "shared_identity", "incognito-value");
+  await setDomain();
+  await regularPopupForTest.locator(".domain-display").click();
+  const regularDomainInput = regularPopupForTest.locator(".domain-edit-layer input");
+  await regularDomainInput.fill("example.com");
+  await regularDomainInput.press("Enter");
+  await incognitoPopup.locator(".domain-display").click();
+  const domainInput = incognitoPopup.locator(".domain-edit-layer input");
+  await domainInput.fill("example.com");
+  await domainInput.press("Enter");
+
+  await expect(incognitoPopup.locator(".cookie-card")).toHaveCount(1);
+  await expect(incognitoPopup.getByRole("textbox", { name: / value$/ })).toHaveValue("incognito-value");
+  await expect(regularPopupForTest.locator(".cookie-card")).toHaveCount(1);
+  await expect(regularPopupForTest.getByRole("textbox", { name: / value$/ })).toHaveValue("original-shared_identity");
+
+  await addCookieToStore(incognitoPopup, incognitoStore.id, "incognito_to_delete", "delete-me");
+  await incognitoPopup.locator(".domain-bar > button").click();
+  await expect(incognitoPopup.locator(".cookie-card")).toHaveCount(2);
+  await incognitoPopup.getByRole("button", { name: "Delete incognito_to_delete" }).click();
+  await expect.poll(async () => incognitoPopup.evaluate((id) =>
+    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
+    incognitoStore.id,
+  )).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "shared_identity", value: "incognito-value" }),
+  ]));
+
+  await incognitoPopup.getByRole("textbox", { name: "shared_identity value" }).fill("updated-incognito-value");
+  await incognitoPopup.getByRole("button", { name: "Save All" }).click();
+  await expect.poll(async () => incognitoPopup.evaluate((id) =>
+    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
+    incognitoStore.id,
+  )).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "shared_identity", value: "updated-incognito-value" }),
+  ]));
+
+  incognitoPopup.once("dialog", (dialog) => dialog.accept());
+  await incognitoPopup.getByRole("button", { name: "Clear All" }).click();
+
+  await expect(incognitoPopup.getByText("No cookies found")).toBeVisible();
+  await expect.poll(async () => incognitoPopup.evaluate((id) =>
+    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
+    incognitoStore.id,
+  )).toHaveLength(0);
+  await expect.poll(async () => regularPopupForTest.evaluate((id) =>
+    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
+    regularStore.id,
+  )).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "shared_identity", value: "original-shared_identity" }),
+  ]));
+});
+
 test("nested-path cookies are listed, exported, and cleared", async () => {
   await context.addCookies([
     {
@@ -107,11 +270,55 @@ test("nested-path cookies are listed, exported, and cleared", async () => {
   const download = await downloadPromise;
   const filePath = await download.path();
   expect(filePath).toBeTruthy();
-  expect(JSON.parse(await readFile(filePath!, "utf8"))).toHaveLength(1);
+  const exported = JSON.parse(await readFile(filePath!, "utf8"));
+  expect(exported).toHaveLength(1);
+  expect(exported[0]).not.toHaveProperty("storeId");
 
   popup.once("dialog", (dialog) => dialog.accept());
   await popup.getByRole("button", { name: "Clear All" }).click();
   await expect.poll(async () => context.cookies("https://example.com/account/")).toHaveLength(0);
+});
+
+test("new cookies are saved into the active tab's store", async () => {
+  await setDomain();
+  await popup.getByRole("button", { name: "Add Cookie" }).click();
+  const fields = popup.locator(".cookie-card-new .cookie-fields input");
+  await fields.nth(0).fill("added_in_popup");
+  await fields.nth(1).fill("created-value");
+  await popup.getByRole("button", { name: "Save All" }).click();
+
+  await expect.poll(async () => context.cookies("https://example.com/")).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ name: "added_in_popup", value: "created-value" }),
+    ]),
+  );
+});
+
+test("imported cookies are saved into the active tab's store", async () => {
+  await setDomain();
+  const tempDir = await mkdtemp(join(tmpdir(), "cookieater-import-"));
+  const importPath = join(tempDir, "cookies.json");
+  await writeFile(importPath, JSON.stringify([
+    {
+      name: "imported_cookie",
+      value: "imported-value",
+      domain: "example.com",
+      path: "/",
+      sameSite: "lax",
+      hostOnly: true,
+    },
+  ]));
+
+  try {
+    await popup.getByLabel("Choose a JSON file containing cookies").setInputFiles(importPath);
+    await expect.poll(async () => context.cookies("https://example.com/")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "imported_cookie", value: "imported-value" }),
+      ]),
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("clearing the selected domain clears its cookie list", async () => {
