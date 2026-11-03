@@ -11,6 +11,7 @@ import Button from "./components/ui/Button";
 
 export default function App() {
   const [domain, setDomain] = useState("");
+  const [cookieStoreId, setCookieStoreId] = useState<string>();
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,7 +28,7 @@ export default function App() {
     importCookies,
     clearAll,
     reload,
-  } = useCookies(domain);
+  } = useCookies(domain, cookieStoreId);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -153,6 +154,7 @@ export default function App() {
       sameSite: "lax",
       session: false,
       hostOnly: false,
+      storeId: cookieStoreId,
     };
     addCookie(blank);
     requestAnimationFrame(() =>
@@ -161,7 +163,11 @@ export default function App() {
   };
 
   const handleExport = () => {
-    const data = JSON.stringify(cookies, null, 2);
+    const data = JSON.stringify(
+      cookies.map(({ storeId: _storeId, ...cookie }) => cookie),
+      null,
+      2,
+    );
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -238,6 +244,7 @@ export default function App() {
         <DomainBar
           domain={domain}
           onDomainChange={handleDomainChange}
+          onCookieStoreChange={setCookieStoreId}
           onRefresh={handleRefresh}
           disabled={saving}
         />

@@ -7,6 +7,7 @@ export default defineConfig({
   manifest: {
     name: "Cookieater: Cookie Manager",
     description: "Inspect, search, and manage cookies for the website you’re viewing.",
+    incognito: "split",
     permissions: ["cookies"],
     host_permissions: ["<all_urls>"],
     commands: {

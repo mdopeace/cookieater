@@ -7,6 +7,7 @@ import Button from "./ui/Button";
 interface DomainBarProps {
   domain: string;
   onDomainChange: (d: string) => void;
+  onCookieStoreChange: (storeId: string) => void;
   onRefresh: () => void;
   disabled?: boolean;
 }
@@ -14,6 +15,7 @@ interface DomainBarProps {
 export default function DomainBar({
   domain,
   onDomainChange,
+  onCookieStoreChange,
   onRefresh,
   disabled = false,
 }: DomainBarProps) {
@@ -37,6 +39,11 @@ export default function DomainBar({
         currentWindow: true,
       });
       const tab = tabs[0];
+      if (tab?.id !== undefined) {
+        const stores = await browser.cookies.getAllCookieStores();
+        const store = stores.find((item) => item.tabIds.includes(tab.id!));
+        if (store) onCookieStoreChange(store.id);
+      }
       if (tab?.url) {
         try {
           const hostname = new URL(tab.url).hostname;

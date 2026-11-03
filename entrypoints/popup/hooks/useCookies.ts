@@ -16,6 +16,7 @@ function toCookieItem(c: {
   session: boolean;
   hostOnly: boolean;
   partitionKey?: CookieItem["partitionKey"];
+  storeId: string;
 }): CookieItem {
   return {
     localId: crypto.randomUUID(),
@@ -30,6 +31,7 @@ function toCookieItem(c: {
     session: c.session,
     hostOnly: c.hostOnly,
     partitionKey: c.partitionKey,
+    storeId: c.storeId,
   };
 }
 
@@ -37,7 +39,7 @@ function toCookieItem(c: {
 const cookieUrl = (cookie: CookieItem, secure: boolean) =>
   `${secure ? "https" : "http"}://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
 
-async function persistCookie(cookie: CookieItem) {
+async function persistCookie(cookie: CookieItem, storeId?: string) {
   const secure = cookie.sameSite === "no_restriction" ? true : cookie.secure;
   await browser.cookies.set({
     url: cookieUrl(cookie, secure),
@@ -51,10 +53,11 @@ async function persistCookie(cookie: CookieItem) {
     httpOnly: cookie.httpOnly,
     sameSite: cookie.sameSite,
     partitionKey: cookie.partitionKey,
+    storeId: storeId ?? cookie.storeId,
   });
 }
 
-async function removeCookieFromBrowser(cookie: CookieItem) {
+async function removeCookieFromBrowser(cookie: CookieItem, storeId?: string) {
   return browser.cookies.remove({
     name: cookie.name,
     // SameSite=None cookies are always Secure, including after persistence.
@@ -63,6 +66,7 @@ async function removeCookieFromBrowser(cookie: CookieItem) {
       cookie.sameSite === "no_restriction" || cookie.secure,
     ),
     partitionKey: cookie.partitionKey,
+    storeId: storeId ?? cookie.storeId,
   });
 }
 
@@ -80,7 +84,7 @@ const matchesDomain = (
 const hasSameIdentity = (a: CookieItem, b: CookieItem) =>
   a.name === b.name && a.domain === b.domain && a.path === b.path;
 
-export function useCookies(domain: string) {
+export function useCookies(domain: string, storeId?: string) {
   const [cookies, setCookies] = useState<CookieItem[]>([]);
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
@@ -92,7 +96,7 @@ export function useCookies(domain: string) {
   const load = useCallback(async () => {
     const currentLoad = ++loadId.current;
     const hostname = domain.trim().replace(/^\.+/, "").replace(/\.$/, "");
-    if (!hostname) {
+    if (!hostname || !storeId) {
       originals.current.clear();
       setCookies([]);
       setDirtyIds(new Set());
@@ -109,7 +113,7 @@ export function useCookies(domain: string) {
     setNewIds(new Set());
     originals.current.clear();
     try {
-      const allCookies = await browser.cookies.getAll({});
+      const allCookies = await browser.cookies.getAll({ storeId });
       if (currentLoad !== loadId.current) return;
 
       const raw = Array.from(
@@ -117,7 +121,7 @@ export function useCookies(domain: string) {
           allCookies
             .filter((cookie) => matchesDomain(cookie, hostname))
             .map((cookie) => [
-              `${cookie.storeId}:${cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : ""}:${cookie.domain}:${cookie.path}:${cookie.name}`,
+              `${cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : ""}:${cookie.domain}:${cookie.path}:${cookie.name}`,
               cookie,
             ]),
         ).values(),
@@ -131,7 +135,7 @@ export function useCookies(domain: string) {
     } finally {
       if (currentLoad === loadId.current) setLoading(false);
     }
-  }, [domain]);
+  }, [domain, storeId]);
 
   useEffect(() => {
     load();
@@ -175,7 +179,7 @@ export function useCookies(domain: string) {
       }
 
       try {
-        await removeCookieFromBrowser(originals.current.get(localId) ?? cookie);
+        await removeCookieFromBrowser(originals.current.get(localId) ?? cookie, storeId);
         setCookies((prev) => prev.filter((c) => c.localId !== localId));
         originals.current.delete(localId);
         setDirtyIds((prev) => {
@@ -189,7 +193,7 @@ export function useCookies(domain: string) {
         return false;
       }
     },
-    [cookies, newIds],
+    [cookies, newIds, storeId],
   );
 
   const saveCookie = useCallback(
@@ -199,12 +203,12 @@ export function useCookies(domain: string) {
 
       const original = originals.current.get(localId);
       if (original && !hasSameIdentity(original, cookie)) {
-        await removeCookieFromBrowser(original);
+        await removeCookieFromBrowser(original, storeId);
         try {
-          await persistCookie(cookie);
+          await persistCookie(cookie, storeId);
         } catch (error) {
           try {
-            await persistCookie(original);
+            await persistCookie(original, storeId);
           } catch (restoreError) {
             throw new Error(
               `${(error as Error).message} The original cookie could not be restored: ${(restoreError as Error).message}`,
@@ -213,7 +217,7 @@ export function useCookies(domain: string) {
           throw error;
         }
       } else {
-        await persistCookie(cookie);
+        await persistCookie(cookie, storeId);
       }
 
       const effectiveSecure =
@@ -246,7 +250,7 @@ export function useCookies(domain: string) {
         return s;
       });
     },
-    [cookies],
+    [cookies, storeId],
   );
 
   const importCookies = useCallback(
@@ -254,7 +258,7 @@ export function useCookies(domain: string) {
       let failed = 0;
       for (const item of items) {
         try {
-          await persistCookie(item);
+          await persistCookie(item, storeId);
         } catch {
           failed++;
         }
@@ -266,7 +270,7 @@ export function useCookies(domain: string) {
         );
       }
     },
-    [load],
+    [load, storeId],
   );
 
   const clearAll = useCallback(async () => {
@@ -275,7 +279,7 @@ export function useCookies(domain: string) {
     for (const c of cookies) {
       if (newIds.has(c.localId)) continue;
       try {
-        await removeCookieFromBrowser(originals.current.get(c.localId) ?? c);
+        await removeCookieFromBrowser(originals.current.get(c.localId) ?? c, storeId);
       } catch {
         failed++;
         failedIds.add(c.localId);
@@ -297,7 +301,7 @@ export function useCookies(domain: string) {
     setDirtyIds(new Set());
     setNewIds(new Set());
     return failed;
-  }, [cookies, newIds]);
+  }, [cookies, newIds, storeId]);
 
   return {
     cookies,
