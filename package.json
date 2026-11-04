@@ -8,6 +8,8 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
+    "publish:firefox": "node .github/scripts/publish-firefox-addons.mjs",
     "compile": "tsc --noEmit",
     "compile:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "test:e2e": "pnpm build && playwright test",
@@ -25,8 +27,10 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@wxt-dev/auto-icons": "^1.0.0",
+    "jszip": "3.10.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
+    "web-ext": "10.8.0",
     "wxt": "^0.20.27"
   }
 }
