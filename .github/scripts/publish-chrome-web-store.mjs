@@ -1,4 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
+import { resolve } from "node:path";
+import JSZip from "jszip";
 
 const required = [
   "CWS_PUBLISHER_ID",
@@ -40,11 +42,52 @@ const publisherId = encodeURIComponent(process.env.CWS_PUBLISHER_ID);
 const extensionId = encodeURIComponent(process.env.CWS_EXTENSION_ID);
 const itemUrl =
   `https://chromewebstore.googleapis.com/v2/publishers/${publisherId}/items/${extensionId}`;
-const archives = (await readdir(".output")).filter((name) =>
-  /^cookieater-.+-chrome\.zip$/.test(name),
+const chromeManifest = JSON.parse(
+  await readFile(".output/chrome-mv3/manifest.json", "utf8"),
 );
-if (archives.length !== 1) {
-  throw new Error(`Expected one Chrome package in .output; found ${archives.length}.`);
+const archiveName = `cookieater-${chromeManifest.version}-chrome.zip`;
+const archives = await readdir(".output");
+if (!archives.includes(archiveName)) {
+  throw new Error(`Expected Chrome package ${archiveName} in .output.`);
+}
+
+async function sourceFiles(directory, prefix = "") {
+  const entries = new Map();
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    const absolutePath = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      for (const [path, data] of await sourceFiles(absolutePath, relativePath)) {
+        entries.set(path, data);
+      }
+    } else if (entry.isFile()) {
+      entries.set(relativePath, await readFile(absolutePath));
+    }
+  }
+  return entries;
+}
+
+const zip = await JSZip.loadAsync(await readFile(resolve(".output", archiveName)));
+const zipFiles = new Map();
+for (const [path, entry] of Object.entries(zip.files)) {
+  if (!entry.dir) {
+    zipFiles.set(path.replaceAll("\\", "/"), await entry.async("nodebuffer"));
+  }
+}
+
+const sourceDir = resolve(".output/chrome-mv3");
+const sourceFilesMap = await sourceFiles(sourceDir);
+if (
+  zipFiles.size !== sourceFilesMap.size ||
+  [...sourceFilesMap.keys()].some((path) => {
+    const zipFile = zipFiles.get(path);
+    const sourceFile = sourceFilesMap.get(path);
+    return !zipFile || !sourceFile || !zipFile.equals(sourceFile);
+  })
+) {
+  throw new Error(
+    `Chrome ZIP ${archiveName} does not exactly match the built .output/chrome-mv3 directory.`,
+  );
 }
 
 const uploadResponse = await fetch(
@@ -55,7 +98,7 @@ const uploadResponse = await fetch(
       authorization: `Bearer ${accessToken}`,
       "content-type": "application/zip",
     },
-    body: await readFile(`.output/${archives[0]}`),
+    body: await readFile(`.output/${archiveName}`),
   },
 );
 const uploaded = await checkedJson(uploadResponse, "Uploading extension");

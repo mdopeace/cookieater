@@ -4,12 +4,25 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   srcDir: ".",
   modules: ["@wxt-dev/auto-icons"],
-  manifest: {
+  manifest: (env) => ({
     name: "Cookieater: Cookie Manager",
     description: "Inspect, search, and manage cookies for the website you’re viewing.",
-    incognito: "split",
+    incognito: env.browser === "firefox" ? undefined : "split",
     permissions: ["cookies"],
     host_permissions: ["<all_urls>"],
+    ...(env.browser === "firefox"
+      ? {
+          browser_specific_settings: {
+            gecko: {
+              id: "cookieater@mdopeace.github.io",
+              strict_min_version: "142.0",
+              data_collection_permissions: {
+                required: ["none"],
+              },
+            },
+          },
+        }
+      : {}),
     commands: {
       _execute_action: {
         suggested_key: {
@@ -19,7 +32,7 @@ export default defineConfig({
         description: "Open Cookieater",
       },
     },
-  },
+  }),
   vite: () => ({
     plugins: [tailwindcss()],
   }),

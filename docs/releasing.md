@@ -1,15 +1,17 @@
-# Chrome Web Store releases
+# Browser extension releases
 
 ## Before the first release
 
-The `Publish Chrome Web Store` workflow requires these repository Actions
-secrets in **Settings → Secrets and variables → Actions**:
+The `Publish Browser Extension Stores` workflow requires these repository
+Actions secrets in **Settings → Secrets and variables → Actions**:
 
 - `CWS_PUBLISHER_ID`
 - `CWS_EXTENSION_ID`
 - `CWS_CLIENT_ID`
 - `CWS_CLIENT_SECRET`
 - `CWS_REFRESH_TOKEN`
+- `AMO_JWT_ISSUER`
+- `AMO_JWT_SECRET`
 
 Create or select a project in the [Google Cloud Console](https://console.cloud.google.com/)
 and enable the **Chrome Web Store API**. Configure Google Auth Platform with an
@@ -33,21 +35,32 @@ flow. Keep the client secret and refresh token private.
 See Google's [Chrome Web Store API guide](https://developer.chrome.com/docs/webstore/using-api)
 for official API details.
 
+For Firefox, create API credentials in the Mozilla Add-ons Developer Hub:
+open **Tools for developers → Manage API keys**, then create a JWT issuer and
+secret. Store them as `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` GitHub Actions
+secrets. Keep the JWT secret private. The extension uses the stable Gecko ID
+`cookieater@mdopeace.github.io`; do not change it for an existing AMO listing.
+
 ## Run a release
 
-1. Make sure `main` contains the changes to release and that the initial Web
-   Store listing is not still under review.
-2. In GitHub, open **Actions → Publish Chrome Web Store → Run workflow** and
+1. Make sure `main` contains the changes to release and that neither initial
+   store listing is still under review.
+2. In GitHub, open **Actions → Publish Browser Extension Stores → Run workflow** and
    select `main`.
 3. Choose `patch`, `minor`, or `major`, or enter an exact higher
    `MAJOR.MINOR.PATCH` version. An exact version overrides the bump choice.
 4. Start the workflow and monitor the run in Actions.
 
-The workflow creates and squash-merges a version-bump pull request, builds and
-validates the extension package, uploads it to the existing Web Store item, and
-submits the update for review. It does not create a GitHub Release or bypass
-Chrome Web Store review.
+The workflow creates and squash-merges one version-bump pull request, builds
+and validates both Chrome and Firefox packages, uploads the Chrome package to
+the Chrome Web Store, and submits the Firefox package to Mozilla Add-ons. It
+does not create a GitHub Release or bypass either store's review process.
+Mozilla and Chrome reviews remain independent, so one store may approve while
+the other rejects or continues reviewing.
 
 The version-bump pull request is merged before the package is built and
 submitted. If a later workflow step fails, inspect the run and current version
-before retrying; a retry will calculate a new version from `main`.
+before retrying. A workflow rerun preserves the version already merged by the
+attempt; it does not calculate another bump. The Firefox submission script
+also verifies that the Firefox ZIP exactly matches the built Firefox source
+directory before contacting Mozilla Add-ons.

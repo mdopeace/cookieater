@@ -15,6 +15,10 @@ pnpm dev
 build it with `pnpm build`, then load `.output/chrome-mv3` from
 `chrome://extensions` with Developer mode enabled.
 
+For Firefox, run `pnpm build --browser firefox --mv3`, then open
+`about:debugging#/runtime/this-firefox` and load a temporary extension from
+`.output/firefox-mv3`.
+
 ## Validate changes
 
 Before opening a pull request, run the checks used by CI:
@@ -24,9 +28,13 @@ node --test .github/scripts/resolve-release-version.test.mjs
 pnpm compile
 pnpm compile:e2e
 pnpm build
+pnpm build --browser chrome --mv3
+pnpm build --browser firefox --mv3
 pnpm exec playwright install chromium
 pnpm test:e2e:run
 pnpm zip
+pnpm zip --browser chrome --mv3
+pnpm zip --browser firefox --mv3
 ```
 
 The end-to-end suite launches an isolated Chromium profile with the unpacked

@@ -1,4 +1,4 @@
-name: Publish Chrome Web Store
+name: Publish Browser Extension Stores
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: chrome-web-store-publish
+  group: browser-extension-publish
   cancel-in-progress: false
 
 jobs:
@@ -49,6 +49,8 @@ jobs:
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           node --input-type=module <<'NODE'
           const names = [
@@ -57,6 +59,8 @@ jobs:
             "CWS_CLIENT_ID",
             "CWS_CLIENT_SECRET",
             "CWS_REFRESH_TOKEN",
+            "AMO_JWT_ISSUER",
+            "AMO_JWT_SECRET",
           ];
           const missing = names.filter((name) => !process.env[name]);
           if (missing.length) {
@@ -70,10 +74,76 @@ jobs:
         env:
           BUMP: ${{ inputs.bump }}
           EXACT_VERSION: ${{ inputs.version }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          VERSION="$(node .github/scripts/resolve-release-version.mjs "$BUMP" "$EXACT_VERSION")"
+          if [ "$RUN_ATTEMPT" -gt 1 ]; then
+            VERSION="$(node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          execFileSync("git", ["fetch", "origin", "main"]);
+          execFileSync("git", [
+            "fetch",
+            "origin",
+            "+refs/heads/release/*:refs/remotes/origin/release/*",
+          ]);
+
+          const runId = process.env.RUN_ID;
+          let ref = "origin/main";
+          try {
+            const matchingBranch = execFileSync(
+              "git",
+              ["for-each-ref", "--format=%(refname:short)", `refs/remotes/origin/release/*-${runId}`],
+              { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+            ).trim().split("\n").find(Boolean);
+            if (matchingBranch) ref = matchingBranch;
+          } catch {}
+
+          const packageJson = execFileSync("git", ["show", `${ref}:package.json`], {
+            encoding: "utf8",
+          });
+          const { version } = JSON.parse(packageJson);
+          if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+            throw new Error(`Invalid rerun package version: ${version}`);
+          }
+          process.stdout.write(version);
+          NODE
+          )"
+          else
+            VERSION="$(node .github/scripts/resolve-release-version.mjs "$BUMP" "$EXACT_VERSION")"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Prepare rerun checkout
+        if: ${{ github.run_attempt > 1 }}
+        run: |
+          git fetch origin main
+          git fetch origin "+refs/heads/release/*:refs/remotes/origin/release/*"
+          RELEASE_REF="$(git for-each-ref --format='%(refname:short)' \
+            "refs/remotes/origin/release/*-${GITHUB_RUN_ID}" | head -n 1)"
+          if [ -n "$RELEASE_REF" ]; then
+            git checkout -B main "$RELEASE_REF"
+          else
+            git checkout -B main origin/main
+          fi
+      - uses: actions/download-artifact@v4
+        if: ${{ github.run_attempt > 1 }}
+        continue-on-error: true
+        with:
+          name: chrome-submitted-${{ steps.resolve.outputs.version }}
+          path: .release-state
+      - name: Check Chrome submission marker
+        if: ${{ github.run_attempt > 1 }}
+        id: chrome_marker
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          if [ -f ".release-state/chrome-submitted" ] &&
+             [ "$(cat .release-state/chrome-submitted)" = "$VERSION" ]; then
+            echo "submitted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "submitted=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create and merge version bump PR
+        if: ${{ github.run_attempt == 1 }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -100,7 +170,7 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "Release v${VERSION}" \
-            --body "Bumps the extension version to ${VERSION} for Chrome Web Store release.")"
+            --body "Bumps the extension version to ${VERSION} for Chrome and Firefox store release.")"
           gh pr merge "$PR_URL" --squash --delete-branch
 
           git checkout main
@@ -108,8 +178,11 @@ jobs:
           git reset --hard origin/main
       - run: pnpm install --frozen-lockfile
       - run: pnpm compile
-      - run: pnpm build
-      - run: pnpm zip
+      - run: pnpm build --browser chrome --mv3
+      - run: pnpm zip --browser chrome --mv3
+      - run: pnpm build --browser firefox --mv3
+      - run: pnpm zip --browser firefox --mv3
+      - run: pnpm lint:firefox
       - name: Verify packaged version
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -117,16 +190,29 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from "node:fs/promises";
 
-          const manifest = JSON.parse(
+          const chromeManifest = JSON.parse(
             await readFile(".output/chrome-mv3/manifest.json", "utf8"),
           );
-          if (manifest.version !== process.env.VERSION) {
+          const firefoxManifest = JSON.parse(
+            await readFile(".output/firefox-mv3/manifest.json", "utf8"),
+          );
+          if (chromeManifest.version !== process.env.VERSION) {
             throw new Error(
-              `Built extension version ${manifest.version} does not match ${process.env.VERSION}`,
+              `Built Chrome extension version ${chromeManifest.version} does not match ${process.env.VERSION}`,
             );
           }
+          if (firefoxManifest.version !== process.env.VERSION) {
+            throw new Error(
+              `Built Firefox extension version ${firefoxManifest.version} does not match ${process.env.VERSION}`,
+            );
+          }
+          const gecko = firefoxManifest.browser_specific_settings?.gecko;
+          if (gecko?.id !== "cookieater@mdopeace.github.io") {
+            throw new Error("Built Firefox extension has an unexpected Gecko extension ID.");
+          }
           NODE
-      - name: Upload and publish extension
+      - name: Upload and publish Chrome extension
+        if: ${{ steps.chrome_marker.outputs.submitted != 'true' }}
         env:
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
@@ -134,3 +220,20 @@ jobs:
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: node .github/scripts/publish-chrome-web-store.mjs
+      - name: Record Chrome submission
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          mkdir -p .release-state
+          printf '%s\n' "$VERSION" > .release-state/chrome-submitted
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-submitted-${{ steps.resolve.outputs.version }}
+          path: .release-state/chrome-submitted
+          if-no-files-found: error
+          overwrite: true
+      - name: Submit Firefox extension
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: pnpm publish:firefox

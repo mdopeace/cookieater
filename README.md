@@ -1,8 +1,8 @@
 # Cookieater
 
-A friendly Chrome extension for viewing, searching, and editing cookies on the
-current site. Add, update, import, export, or remove cookies from one compact
-popup.
+A friendly Chrome and Firefox extension for viewing, searching, and editing
+cookies on the current site. Add, update, import, export, or remove cookies
+from one compact popup.
 
 <img src="docs/screenshots/overview.png" alt="Cookieater showing five illustrative example.com cookies, including a session, midnight-amber theme, privacy choice, and salted-caramel flavor preference" width="300">
 
@@ -22,9 +22,12 @@ pnpm build
 In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load
 unpacked**, and select `.output/chrome-mv3`.
 
+In Firefox, open `about:debugging#/runtime/this-firefox`, choose **Load
+Temporary Add-on**, and select any file inside `.output/firefox-mv3`.
+
 ## Requirements
 
-- Chrome or a Chromium-based browser with Manifest V3 extension support
+- Chrome, Chromium, or Firefox with Manifest V3 extension support
 
 ## Features
 
