@@ -124,7 +124,7 @@ jobs:
           else
             git checkout -B main origin/main
           fi
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: ${{ github.run_attempt > 1 }}
         continue-on-error: true
         with:
