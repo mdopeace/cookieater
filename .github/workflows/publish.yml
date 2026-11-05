@@ -226,7 +226,7 @@ jobs:
         run: |
           mkdir -p .release-state
           printf '%s\n' "$VERSION" > .release-state/chrome-submitted
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: chrome-submitted-${{ steps.resolve.outputs.version }}
           path: .release-state/chrome-submitted
