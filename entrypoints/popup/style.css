@@ -152,7 +152,9 @@ html[data-focus-modality="pointer"] input:focus-visible {
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-secondary);
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .support-link:hover {
@@ -340,8 +342,6 @@ html[data-focus-modality="pointer"] input:focus-visible {
 .button-primary:hover:not(:disabled) {
   border-color: #ffdc75;
   background: #ffdc75;
-  box-shadow: 2px 2px 0 #080808;
-  transform: translate(-1px, -1px);
 }
 
 .button-secondary {
