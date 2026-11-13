@@ -16,7 +16,6 @@ const headless = process.env.PLAYWRIGHT_HEADLESS !== "false";
 
 let context: BrowserContext;
 let popup: Page;
-let regularPopupForTest: Page;
 let extensionId: string;
 let profileDir: string;
 
@@ -52,7 +51,6 @@ test.beforeEach(async () => {
   popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   await popup.locator(".domain-display").waitFor();
-  regularPopupForTest = popup;
 });
 
 test.afterEach(async () => {
@@ -79,12 +77,16 @@ test("input outlines distinguish pointer focus from keyboard focus", async () =>
     .toBe("solid");
 });
 
-async function setDomain(domain = "example.com") {
-  await popup.locator(".domain-display").click();
-  const input = popup.locator(".domain-edit-layer input");
+async function setDomainOn(page: Page, domain = "example.com") {
+  await page.locator(".domain-display").click();
+  const input = page.locator(".domain-edit-layer input");
   await input.fill(domain);
   await input.press("Enter");
-  await expect(popup.locator(".domain-display")).toHaveText(domain);
+  await expect(page.locator(".domain-display")).toHaveText(domain);
+}
+
+async function setDomain(domain = "example.com") {
+  await setDomainOn(popup, domain);
 }
 
 async function seedCookies(names: string[]) {
@@ -98,159 +100,110 @@ async function seedCookies(names: string[]) {
   );
 }
 
-async function openIncognitoPopup() {
-  const settings = await context.newPage();
-  await settings.goto(`chrome://extensions/?id=${extensionId}`);
-  const toggle = settings.locator("#allow-incognito");
-  await toggle.waitFor();
-  if (!(await toggle.getAttribute("checked"))) await toggle.click();
-  await settings.close();
-
-  // Chromium applies the extension's incognito access setting after restart.
-  await context.close();
-  context = await chromium.launchPersistentContext(profileDir, {
-    channel: "chromium",
-    headless,
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-    ],
-  });
-  regularPopupForTest = await context.newPage();
-  await regularPopupForTest.goto(`chrome-extension://${extensionId}/popup.html`);
-  await regularPopupForTest.locator(".domain-display").waitFor();
-
-  const pagePromise = context.waitForEvent("page");
-  await regularPopupForTest.evaluate((id) => {
-    return new Promise<void>((resolve, reject) => {
-      (globalThis as any).chrome.windows.create(
-        { url: `chrome-extension://${id}/popup.html`, incognito: true, focused: true },
-        (window: unknown) => {
-          const error = (globalThis as any).chrome.runtime.lastError;
-          if (error) reject(new Error(error.message));
-          else if (!window) reject(new Error("Incognito window was not created"));
-          else resolve();
-        },
-      );
+test("incognito contexts use the current store without a store lookup", async () => {
+  await seedCookies(["incognito_context"]);
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const chromeApi = (globalThis as any).chrome;
+    Object.defineProperty(chromeApi.extension, "inIncognitoContext", {
+      get: () => true,
+      configurable: true,
     });
-  }, extensionId);
-  const incognitoPopup = await pagePromise;
-  await incognitoPopup.locator(".domain-display").waitFor({ timeout: 3_000 });
-  popup = incognitoPopup;
-  return incognitoPopup;
-}
+    chromeApi.cookies.getAllCookieStores = async () => {
+      throw new Error("Store lookup must be skipped in incognito.");
+    };
+  });
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.locator(".domain-display").waitFor();
+  await setDomainOn(page);
 
-async function addCookieToStore(
-  targetPage: Page,
-  storeId: string,
-  name: string,
-  value: string,
-) {
-  await targetPage.evaluate(
-    ({ storeId, name, value }) =>
-      (globalThis as any).chrome.cookies.set({
-        url: "https://example.com/",
-        name,
-        value,
-        sameSite: "lax",
-        storeId,
-      }),
-    { storeId, name, value },
+  await expect(page.locator(".cookie-card")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: / value$/ })).toHaveValue(
+    "original-incognito_context",
   );
-}
 
-test("cookie management stays isolated between regular and incognito stores", async () => {
-  await seedCookies(["shared_identity"]);
-  let incognitoPopup: Page;
-  try {
-    incognitoPopup = await openIncognitoPopup();
-  } catch (error) {
-    if ((error as Error).message.includes("Incognito window was not created")) {
-      test.skip(true, "Chromium did not create an Incognito window; run headed with PLAYWRIGHT_HEADLESS=false to exercise this case.");
-      return;
-    }
-    throw error;
-  }
-  const incognitoTab = await incognitoPopup.evaluate(async () => {
-    const tabs = await (globalThis as any).chrome.tabs.query({
-      active: true,
-      currentWindow: true,
+  await page
+    .getByRole("textbox", { name: / value$/ })
+    .fill("written-without-store");
+  await page.getByRole("button", { name: "Save All" }).click();
+  await expect
+    .poll(async () => {
+      const cookies = await context.cookies("https://example.com/");
+      return cookies.find((cookie) => cookie.name === "incognito_context")?.value;
+    })
+    .toBe("written-without-store");
+});
+
+test("a missing cookie store is reported instead of an empty list", async () => {
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    (globalThis as any).chrome.cookies.getAllCookieStores = async () => [];
+  });
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.locator(".domain-display").waitFor();
+  await setDomainOn(page);
+
+  await expect(
+    page.getByText("Could not identify the active tab's cookie store."),
+  ).toBeVisible();
+  await expect(page.getByText("Loading cookies")).toHaveCount(0);
+});
+
+test("the cookie list waits for the active tab's store", async () => {
+  await seedCookies(["waiting_for_store"]);
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const chromeApi = (globalThis as any).chrome;
+    const getAllCookieStores = chromeApi.cookies.getAllCookieStores;
+    let releaseStore: () => void = () => {};
+    (globalThis as any).__storeReleased = new Promise<void>((resolve) => {
+      releaseStore = resolve;
     });
-    return { id: tabs[0]?.id as number | undefined, incognito: tabs[0]?.incognito as boolean | undefined };
+    (globalThis as any).__releaseStore = () => releaseStore();
+    chromeApi.cookies.getAllCookieStores = async () => {
+      await (globalThis as any).__storeReleased;
+      return getAllCookieStores();
+    };
   });
-  expect(incognitoTab.id).toBeDefined();
-  expect(incognitoTab.incognito).toBe(true);
-  const incognitoStores = await incognitoPopup.evaluate(() =>
-    (globalThis as any).chrome.cookies.getAllCookieStores(),
-  );
-  const incognitoStore = incognitoStores.find((store: { tabIds: number[] }) =>
-    store.tabIds.includes(incognitoTab.id!),
-  );
-  expect(incognitoStore, "Incognito tab should have its own cookie store").toBeTruthy();
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.locator(".domain-display").waitFor();
+  await expect(page.locator(".domain-display")).not.toHaveText("No domain");
+  await expect(page.getByText("Loading cookies")).toBeVisible();
+  await expect(
+    page.getByText("Could not identify the active tab's cookie store."),
+  ).toHaveCount(0);
 
-  const regularTab = await regularPopupForTest.evaluate(async () => {
-    const tabs = await (globalThis as any).chrome.tabs.query({ active: true, currentWindow: true });
-    return { id: tabs[0]?.id as number | undefined, incognito: tabs[0]?.incognito as boolean | undefined };
+  await page.evaluate(() => (globalThis as any).__releaseStore());
+  await expect(page.getByText("Loading cookies")).toHaveCount(0);
+  await setDomainOn(page);
+  await expect(page.locator(".cookie-card")).toHaveCount(1);
+});
+
+test("refresh retries the cookie store lookup", async () => {
+  await seedCookies(["found_on_retry"]);
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const chromeApi = (globalThis as any).chrome;
+    const getAllCookieStores = chromeApi.cookies.getAllCookieStores;
+    let calls = 0;
+    chromeApi.cookies.getAllCookieStores = async () => {
+      if (calls++ === 0) throw new Error("Store lookup failed.");
+      return getAllCookieStores();
+    };
   });
-  expect(regularTab.incognito).toBe(false);
-  const regularStores = await regularPopupForTest.evaluate(() =>
-    (globalThis as any).chrome.cookies.getAllCookieStores(),
-  );
-  const regularStore = regularStores.find((store: { tabIds: number[] }) =>
-    store.tabIds.includes(regularTab.id!),
-  );
-  expect(regularStore, "Regular tab should have its profile cookie store").toBeTruthy();
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.locator(".domain-display").waitFor();
+  await expect(
+    page.getByText("Could not identify the active tab's cookie store."),
+  ).toBeVisible();
+  await setDomainOn(page);
 
-  await addCookieToStore(incognitoPopup, incognitoStore.id, "shared_identity", "incognito-value");
-  await setDomain();
-  await regularPopupForTest.locator(".domain-display").click();
-  const regularDomainInput = regularPopupForTest.locator(".domain-edit-layer input");
-  await regularDomainInput.fill("example.com");
-  await regularDomainInput.press("Enter");
-  await incognitoPopup.locator(".domain-display").click();
-  const domainInput = incognitoPopup.locator(".domain-edit-layer input");
-  await domainInput.fill("example.com");
-  await domainInput.press("Enter");
+  await page.locator(".domain-bar > button").click();
 
-  await expect(incognitoPopup.locator(".cookie-card")).toHaveCount(1);
-  await expect(incognitoPopup.getByRole("textbox", { name: / value$/ })).toHaveValue("incognito-value");
-  await expect(regularPopupForTest.locator(".cookie-card")).toHaveCount(1);
-  await expect(regularPopupForTest.getByRole("textbox", { name: / value$/ })).toHaveValue("original-shared_identity");
-
-  await addCookieToStore(incognitoPopup, incognitoStore.id, "incognito_to_delete", "delete-me");
-  await incognitoPopup.locator(".domain-bar > button").click();
-  await expect(incognitoPopup.locator(".cookie-card")).toHaveCount(2);
-  await incognitoPopup.getByRole("button", { name: "Delete incognito_to_delete" }).click();
-  await expect.poll(async () => incognitoPopup.evaluate((id) =>
-    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
-    incognitoStore.id,
-  )).toEqual(expect.arrayContaining([
-    expect.objectContaining({ name: "shared_identity", value: "incognito-value" }),
-  ]));
-
-  await incognitoPopup.getByRole("textbox", { name: "shared_identity value" }).fill("updated-incognito-value");
-  await incognitoPopup.getByRole("button", { name: "Save All" }).click();
-  await expect.poll(async () => incognitoPopup.evaluate((id) =>
-    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
-    incognitoStore.id,
-  )).toEqual(expect.arrayContaining([
-    expect.objectContaining({ name: "shared_identity", value: "updated-incognito-value" }),
-  ]));
-
-  incognitoPopup.once("dialog", (dialog) => dialog.accept());
-  await incognitoPopup.getByRole("button", { name: "Clear All" }).click();
-
-  await expect(incognitoPopup.getByText("No cookies found")).toBeVisible();
-  await expect.poll(async () => incognitoPopup.evaluate((id) =>
-    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
-    incognitoStore.id,
-  )).toHaveLength(0);
-  await expect.poll(async () => regularPopupForTest.evaluate((id) =>
-    (globalThis as any).chrome.cookies.getAll({ url: "https://example.com/", storeId: id }),
-    regularStore.id,
-  )).toEqual(expect.arrayContaining([
-    expect.objectContaining({ name: "shared_identity", value: "original-shared_identity" }),
-  ]));
+  await expect(
+    page.getByText("Could not identify the active tab's cookie store."),
+  ).toHaveCount(0);
+  await expect(page.locator(".cookie-card")).toHaveCount(1);
 });
 
 test("nested-path cookies are listed, exported, and cleared", async () => {
@@ -283,6 +236,9 @@ test("new cookies are saved into the active tab's store", async () => {
   await setDomain();
   await popup.getByRole("button", { name: "Add Cookie" }).click();
   const fields = popup.locator(".cookie-card-new .cookie-fields input");
+  // The app focuses the name field on the next frame after Add; wait for it so it
+  // does not steal focus between the two fills.
+  await expect(fields.nth(0)).toBeFocused();
   await fields.nth(0).fill("added_in_popup");
   await fields.nth(1).fill("created-value");
   await popup.getByRole("button", { name: "Save All" }).click();

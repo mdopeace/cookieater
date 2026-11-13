@@ -12,6 +12,8 @@ import Button from "./components/ui/Button";
 export default function App() {
   const [domain, setDomain] = useState("");
   const [cookieStoreId, setCookieStoreId] = useState<string>();
+  const [storeReady, setStoreReady] = useState(false);
+  const [storeLookup, setStoreLookup] = useState(0);
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,7 +30,7 @@ export default function App() {
     importCookies,
     clearAll,
     reload,
-  } = useCookies(domain, cookieStoreId);
+  } = useCookies(domain, cookieStoreId, storeReady);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -139,6 +141,7 @@ export default function App() {
     if (dirtyIds.size > 0 && !confirm("Discard unsaved cookie changes?"))
       return;
     reload();
+    setStoreLookup((n) => n + 1);
   };
 
   const handleAdd = () => {
@@ -245,6 +248,8 @@ export default function App() {
           domain={domain}
           onDomainChange={handleDomainChange}
           onCookieStoreChange={setCookieStoreId}
+          onReady={() => setStoreReady(true)}
+          storeLookupKey={storeLookup}
           onRefresh={handleRefresh}
           disabled={saving}
         />

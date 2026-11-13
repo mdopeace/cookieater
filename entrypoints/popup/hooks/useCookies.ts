@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { browser } from "wxt/browser";
 import type { CookieItem } from "../types";
 
+// Incognito uses its own default cookie store.
+const usesContextCookieStore = browser.extension.inIncognitoContext;
+
+const cookieStoreId = (cookie: CookieItem, storeId?: string) =>
+  usesContextCookieStore ? undefined : (storeId ?? cookie.storeId);
+
 const normalPath = (p: string) => (p.startsWith("/") ? p : `/${p}`);
 
 function toCookieItem(c: {
@@ -35,7 +41,7 @@ function toCookieItem(c: {
   };
 }
 
-// Non-secure cookies work over http; secure cookies can only be addressed over https.
+// Secure cookies require HTTPS.
 const cookieUrl = (cookie: CookieItem, secure: boolean) =>
   `${secure ? "https" : "http"}://${cookie.domain.replace(/^\./, "")}${normalPath(cookie.path)}`;
 
@@ -53,20 +59,20 @@ async function persistCookie(cookie: CookieItem, storeId?: string) {
     httpOnly: cookie.httpOnly,
     sameSite: cookie.sameSite,
     partitionKey: cookie.partitionKey,
-    storeId: storeId ?? cookie.storeId,
+    storeId: cookieStoreId(cookie, storeId),
   });
 }
 
 async function removeCookieFromBrowser(cookie: CookieItem, storeId?: string) {
   return browser.cookies.remove({
     name: cookie.name,
-    // SameSite=None cookies are always Secure, including after persistence.
+    // SameSite=None cookies require Secure.
     url: cookieUrl(
       cookie,
       cookie.sameSite === "no_restriction" || cookie.secure,
     ),
     partitionKey: cookie.partitionKey,
-    storeId: storeId ?? cookie.storeId,
+    storeId: cookieStoreId(cookie, storeId),
   });
 }
 
@@ -84,36 +90,50 @@ const matchesDomain = (
 const hasSameIdentity = (a: CookieItem, b: CookieItem) =>
   a.name === b.name && a.domain === b.domain && a.path === b.path;
 
-export function useCookies(domain: string, storeId?: string) {
+export function useCookies(domain: string, storeId: string | undefined, storeReady: boolean) {
   const [cookies, setCookies] = useState<CookieItem[]>([]);
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoading] = useState(true);
+  const [loadedScope, setLoadedScope] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const originals = useRef(new Map<string, CookieItem>());
   const loadId = useRef(0);
+  const hostname = domain.trim().replace(/^\.+/, "").replace(/\.$/, "");
+  const scope = `${hostname}\u0000${storeId ?? ""}`;
+  const loading =
+    loadingState || !storeReady || (!!hostname && loadedScope !== scope);
 
   const load = useCallback(async () => {
     const currentLoad = ++loadId.current;
-    const hostname = domain.trim().replace(/^\.+/, "").replace(/\.$/, "");
-    if (!hostname || !storeId) {
+    const clearList = () => {
       originals.current.clear();
       setCookies([]);
       setDirtyIds(new Set());
       setNewIds(new Set());
-      setError(null);
+    };
+    if (!storeReady) {
+      setLoading(true);
+      return;
+    }
+
+    if (!hostname || (!storeId && !usesContextCookieStore)) {
+      clearList();
+      setError(
+        hostname ? "Could not identify the active tab's cookie store." : null,
+      );
+      setLoadedScope(scope);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    setCookies([]);
-    setDirtyIds(new Set());
-    setNewIds(new Set());
-    originals.current.clear();
+    clearList();
     try {
-      const allCookies = await browser.cookies.getAll({ storeId });
+      const allCookies = await browser.cookies.getAll({
+        storeId: usesContextCookieStore ? undefined : storeId,
+      });
       if (currentLoad !== loadId.current) return;
 
       const raw = Array.from(
@@ -133,9 +153,12 @@ export function useCookies(domain: string, storeId?: string) {
     } catch (e) {
       if (currentLoad === loadId.current) setError((e as Error).message);
     } finally {
-      if (currentLoad === loadId.current) setLoading(false);
+      if (currentLoad === loadId.current) {
+        setLoadedScope(scope);
+        setLoading(false);
+      }
     }
-  }, [domain, storeId]);
+  }, [hostname, scope, storeId, storeReady]);
 
   useEffect(() => {
     load();

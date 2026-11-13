@@ -8,6 +8,8 @@ interface DomainBarProps {
   domain: string;
   onDomainChange: (d: string) => void;
   onCookieStoreChange: (storeId: string) => void;
+  onReady: () => void;
+  storeLookupKey: number;
   onRefresh: () => void;
   disabled?: boolean;
 }
@@ -16,6 +18,8 @@ export default function DomainBar({
   domain,
   onDomainChange,
   onCookieStoreChange,
+  onReady,
+  storeLookupKey,
   onRefresh,
   disabled = false,
 }: DomainBarProps) {
@@ -33,25 +37,56 @@ export default function DomainBar({
   }, [domain]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const tabs = await browser.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-      const tab = tabs[0];
-      if (tab?.id !== undefined) {
-        const stores = await browser.cookies.getAllCookieStores();
-        const store = stores.find((item) => item.tabIds.includes(tab.id!));
-        if (store) onCookieStoreChange(store.id);
-      }
-      if (tab?.url) {
-        try {
-          const hostname = new URL(tab.url).hostname;
-          onDomainChange(hostname);
-        } catch {}
+      try {
+        const tabs = await browser.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        const tab = tabs[0];
+        if (!cancelled && tab?.url) {
+          try {
+            onDomainChange(new URL(tab.url).hostname);
+          } catch {
+            onDomainChange("");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to read the active tab:", error);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Re-runs when Refresh asks for a fresh lookup, so a missed store is recoverable.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Incognito uses its own store.
+        if (browser.extension.inIncognitoContext) return;
+        const tabs = await browser.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        const tab = tabs[0];
+        if (tab?.id === undefined) return;
+        const stores = await browser.cookies.getAllCookieStores();
+        const store = stores.find((item) => item.tabIds.includes(tab.id!));
+        if (store && !cancelled) onCookieStoreChange(store.id);
+      } catch (error) {
+        console.error("Failed to identify active cookie store:", error);
+      } finally {
+        if (!cancelled) onReady();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeLookupKey]);
 
   const handleSubmit = () => {
     onDomainChange(input.trim());
